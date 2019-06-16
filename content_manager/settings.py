@@ -11,19 +11,10 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
-from django.core.exceptions import ImproperlyConfigured
-
-
-def get_env_variable(var_name):
-    try:
-        return os.environ[var_name]
-    except KeyError:
-        error_msg = "Set the %s environment variable" % var_name
-        raise ImproperlyConfigured(error_msg)
-
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
@@ -34,7 +25,7 @@ SECRET_KEY = 'h+$+@guqjpn=8q*_-&sf(s4eri$)3@4#&yn9u3tgfkxkxht9m2'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -46,12 +37,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'posts.apps.PostsConfig',
-    'static.apps.StaticConfig',
-    'messenger_users.apps.MessengerUsersConfig',
-    'utilities.apps.UtilitiesConfig',
-    'dash.apps.DashConfig',
-    'upload.apps.UploadConfig'
 ]
 
 MIDDLEWARE = [
@@ -89,28 +74,12 @@ WSGI_APPLICATION = 'content_manager.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
-print('engine: ', os.getenv('CM_DATABASE_ENGINE'))
-print('db name: ', os.getenv('CM_DATABASE_NAME'))
-
 DATABASES = {
     'default': {
-        'ENGINE': os.getenv('CM_DATABASE_ENGINE'),
-        'NAME': os.getenv('CM_DATABASE_NAME'),
-        'USER': os.getenv('CM_DATABASE_USER'),
-        'PASSWORD': os.getenv('CM_DATABASE_PASSWORD'),
-        'HOST': os.getenv('CM_DATABASE_HOST'),
-        'PORT': os.getenv('CM_DATABASE_PORT'),
-    },
-    'messenger_users_db': {
-        'ENGINE': os.getenv('CM_DATABASE_ENGINE'),
-        'NAME': os.getenv('CM_DATABASE_USERS_NAME'),
-        'USER': os.getenv('CM_DATABASE_USER'),
-        'PASSWORD': os.getenv('CM_DATABASE_PASSWORD'),
-        'HOST': os.getenv('CM_DATABASE_HOST'),
-        'PORT': os.getenv('CM_DATABASE_PORT'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 }
-DATABASE_ROUTERS = ['messenger_users.routers.MessengerUsersRouter']
 
 
 # Password validation
@@ -135,7 +104,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/2.1/topics/i18n/
 
-LANGUAGE_CODE = 'es-gt'
+LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
@@ -149,6 +118,4 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
-STATIC_ROOT = 'staticfiles/'
 STATIC_URL = '/static/'
-DOMAIN_URL = 'http://localhost:8000'
