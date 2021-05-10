@@ -16,18 +16,21 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework import routers
+from articles import api_views as articles_api_views
 from attributes import api_views as attributes_api_views
 from bots import api_views as bots_api_views
 from entities import api_views as entities_api_views
 from groups import api_views as groups_api_views
 from instances import api_views as instances_api_views
 from messenger_users import api_views as messenger_users_api_views
+from posts import api_views as posts_api_views
 from programs import api_views as programs_api_views
 from user_sessions import api_views as sessions_api_views
 
 
 # api v0.1 router
 router = routers.DefaultRouter()
+router.register(r'article_intent', articles_api_views.ArticleIntentViewSet)
 router.register(r'attributes', attributes_api_views.AttributeViewSet)
 router.register(r'bot_sessions', sessions_api_views.BotSessionViewSet)
 router.register(r'entities', entities_api_views.EntityViewSet)
@@ -38,6 +41,7 @@ router.register(r'interactions', bots_api_views.InteractionViewSet)
 router.register(r'messenger_users', messenger_users_api_views.UserViewSet)
 router.register(r'messenger_users_channels', messenger_users_api_views.UserChannelSet)
 router.register(r'messenger_users_data', messenger_users_api_views.UserDataViewSet)
+router.register(r'post_intent', posts_api_views.PostIntentViewSet)
 router.register(r'programs', programs_api_views.ProgramViewSet)
 router.register(r'programs_attributes', programs_api_views.AttributesViewSet)
 router.register(r'programs_attribute_types', programs_api_views.AttributeTypeViewSet)
