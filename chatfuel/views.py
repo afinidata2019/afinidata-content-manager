@@ -615,8 +615,7 @@ class ExchangeCodeView(TemplateView):
                                              attribute_id=Attribute.objects.get(name='Región').id)
                 return JsonResponse(dict(set_attributes=dict(request_status='done', service_name='Exchange Code')))
             else:
-                return JsonResponse(dict(set_attributes=dict(request_status='error',
-                                                             request_error='User be in group',
+                return JsonResponse(dict(set_attributes=dict(request_status='done',
                                                              service_name='Exchange Code')))
         else:
             return JsonResponse(dict(set_attributes=dict(request_status='error',
@@ -1095,8 +1094,8 @@ class GetMilestoneView(View):
             .exclude(id__in=[i.milestone_id for i in responses])
 
         if not milestones.exists():
-            return JsonResponse(dict(set_attributes=dict(request_status='error',
-                                                         request_error='Instance has not milestones to do.',
+            return JsonResponse(dict(set_attributes=dict(request_status='done',
+                                                         request_response='Instance has no milestones to do.',
                                                          all_range_milestones_dispatched='true',
                                                          all_level_milestones_dispatched='true')))
 
@@ -1173,8 +1172,8 @@ class GetProgramMilestoneView(View):
             if (not data['session'].active) or ('milestone' not in data):
                 # Get max scores of instance
                 scores = instance.score_set.all().values('area__name').annotate(score=Max('value'))
-                response = dict(request_status='error',
-                                request_error='Instance has not milestones to do.',
+                response = dict(request_status='done',
+                                request_response='Instance has no milestones to do.',
                                 all_range_milestones_dispatched='true',
                                 all_level_milestones_dispatched='true',
                                 total_score=sum([x['score'] for x in scores]))
@@ -1192,8 +1191,8 @@ class GetProgramMilestoneView(View):
                 .exclude(id__in=[i.milestone_id for i in instance.response_set.filter(created_at__gte=day_range)])
 
             if not milestones.exists():
-                return JsonResponse(dict(set_attributes=dict(request_status='error',
-                                                             request_error='Instance has not milestones to do.',
+                return JsonResponse(dict(set_attributes=dict(request_status='done',
+                                                             request_response='Instance has no milestones to do.',
                                                              all_range_milestones_dispatched='true',
                                                              all_level_milestones_dispatched='true')))
 
@@ -1523,13 +1522,17 @@ class SendSessionView(View):
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
 
         # check if user is in the 24hr windows
-        in_window = UserChannel.objects.filter( user__id=data['user_id'], 
-                                                bot_id=data['bot_id'], 
+        in_window = UserChannel.objects.filter( bot_id=data['bot_id'], 
                                                 bot_channel_id=data['bot_channel_id'], 
                                                 user_channel_id=data['user_channel_id'])
-        in_window = in_window.first().get_last_user_message_date(check_window=True) if in_window.exists() else False                               
-        if 'tags' not in data and not in_window:
-            return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='No se asignó la sesión, \n Usuario fuera de la ventanda de 24hrs')))
+        if in_window.exists():
+            in_window = in_window.last().get_last_user_message_date(check_window=True)                               
+            if 'tags' not in data and not in_window:
+                return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='No se asignó la sesión, \n Usuario fuera de la ventanda de 24hrs')))
+        else:
+            msg = 'No se encontró el user_channel \n  bot_id: {0}, user_channel_id:{1}'.format( data['bot_id'], 
+                                                                                                data['user_channel_id'])
+            return JsonResponse(dict(set_attributes=dict(request_status='error', request_error=msg)))
         
         position = 0
         if 'position' in data:

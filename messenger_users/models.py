@@ -124,7 +124,7 @@ class User(models.Model):
 
     @property
     def last_channel_interaction(self):
-        last_seen = self.userchannel_set.filter(interaction__category=2).order_by('interaction__id'). \
+        last_seen = self.userchannel_set.all().order_by('interaction__id'). \
             values('interaction__created_at')
         if last_seen.exists():
             return last_seen.last()['interaction__created_at']

@@ -29,3 +29,9 @@ class AttributeValueFilterPosibleVal(serializers.ModelSerializer):
     class Meta:
         model = AttributeValue
         fields = ('value', )
+
+
+class InstanceShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Instance
+        fields = ('id','name')

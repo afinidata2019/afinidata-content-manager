@@ -22,7 +22,6 @@ from attributes.models import Attribute
 from utilities.views import PeopleFilterSearch
 
 
-
 class UserViewSet(viewsets.ModelViewSet):
     queryset = models.User.objects.all().annotate(last_interaction=Max('userchannel__interaction__id')).order_by('-last_interaction')
     serializer_class = serializers.UserSerializer
@@ -87,10 +86,11 @@ class UserViewSet(viewsets.ModelViewSet):
             if user_channel.exists():
                 for current_type in data['interactions']:
                     if current_type in ['user_message', 'reaction_interaction', 'referral_interaction',
-                                        'postback_interaction', 'otn_interaction', 'link_interaction']:
+                                        'postback_interaction']:
                         interaction_type = models.Interaction.LAST_USER_MESSAGE
                         user_channel.last().interaction_set.create(category=interaction_type)
-                    elif current_type in ['channel_interaction', 'read_interaction']:
+                    elif current_type in ['channel_interaction', 'read_interaction', 'otn_interaction',
+                                          'link_interaction']:
                         interaction_type = models.Interaction.LAST_CHANNEL_INTERACTION
                         user_channel.last().interaction_set.create(category=interaction_type)
                     else:

@@ -4,6 +4,8 @@ from django.utils import timezone
 import requests
 import os
 
+from instances.serializers import InstanceShortSerializer
+from instances.models import Instance
 
 class UserSerializer(serializers.ModelSerializer):
     profile_pic = serializers.ReadOnlyField()
@@ -16,10 +18,19 @@ class UserSerializer(serializers.ModelSerializer):
     last_channel_interaction = serializers.ReadOnlyField()
     window = serializers.ReadOnlyField()
 
+    # get id, name from instances associates to user
+    instances = serializers.SerializerMethodField()
+
+    def get_instances(self, obj):
+        qs = Instance.objects.filter(instanceassociationuser__user_id=obj.pk)
+        serializer = InstanceShortSerializer(qs, many=True)
+        return serializer.data
+
     class Meta:
         model = User
-        fields = '__all__'
-        # exclude = ['created_at']
+        fields = ['id', 'first_name', 'last_name', 'username', 'last_seen', 'last_user_message', 'backup_key', 'license', 'language',
+                  'last_channel_interaction', 'window', 'channel_id', 'user_channel_id', 'bot_channel_id', 'bot_id', 'profile_pic',
+                  'last_message', 'last_bot_id', 'created_at', 'updated_at', 'entity','instances']
 
 
 class UserConversationSerializer(serializers.ModelSerializer):
@@ -68,7 +79,7 @@ class UserChannelSerializer(serializers.ModelSerializer):
 
 class DetailedUserChannelSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True, many=False)
-    
+
     class Meta:
         model = UserChannel
         fields = '__all__'
