@@ -222,7 +222,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
             elif search_by == 'sequence':
                 try:
-                    url = "{0}/api/0.1/uhts/getSuscribedUsers/?sequence_id={1}".format(os.getenv('HOT_TRIGGERS_DOMAIN'), value)
+                    url = "{0}/uhts/getSuscribedUsers/?sequence_id={1}".format(os.getenv('HOTTRIGGERS_API'), value)
                     response = requests.get(url).json()
                     suscribed_users = response['results'] if 'results' in response else list()
                     

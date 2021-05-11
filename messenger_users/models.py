@@ -66,7 +66,7 @@ class User(models.Model):
             bot_id = user_channels.last().bot_id
             bot_channel_id = user_channels.last().bot_channel_id
             user_channel_id = user_channels.last().user_channel_id
-            WEBHOOK_URL = os.getenv("WEBHOOK_DOMAIN_URL")
+            WEBHOOK_URL = os.getenv("WEBHOOK_DOMAIN")
             response = requests.get('%s/bots/%s/channel/%s/get_conversation/?user_channel_id=%s' %
                                     (WEBHOOK_URL, bot_id, bot_channel_id, user_channel_id))
             if response.status_code == 200:

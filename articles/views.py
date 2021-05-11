@@ -21,7 +21,7 @@ class ArticleInfoDetailView(DetailView):
 
         intents = list(models.Intent.objects.values_list('intent_id', flat=True).filter(article__id=self.kwargs['article_id']))
         if intents:
-            nlu_response = requests.post(os.getenv('NLU_DOMAIN_URL') + '/api/0.1/intents/get_names/', json=dict(ids=intents)).json()
+            nlu_response = requests.post(os.getenv('NLU_API') + '/intents/get_names/', json=dict(ids=intents)).json()
             intents = nlu_response['results'] if 'results' in nlu_response else list()
         c['intents'] = intents
 

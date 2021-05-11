@@ -841,7 +841,7 @@ class GetArticleView(View):
 
             set_attributes['article_id'] = article.pk
             set_attributes['article_name'] = article.name
-            set_attributes['article_content'] = "%s/articles/%s/?user_id=%s" % (os.getenv('CM_DOMAIN_URL'), article.pk, user.pk)
+            set_attributes['article_content'] = "%s/articles/%s/?user_id=%s" % (os.getenv('CONTENT_MANAGER_DOMAIN'), article.pk, user.pk)
             set_attributes['article_preview'] = article.preview
             set_attributes['article_thumbail'] = article.thumbnail
 
@@ -891,7 +891,7 @@ class GetArticleView(View):
         
         set_attributes['article_id'] = article.pk
         set_attributes['article_name'] = article.name
-        set_attributes['article_content'] = "%s/articles/%s/?user_id=%s&instance_id=%s" % (os.getenv('CM_DOMAIN_URL'), 
+        set_attributes['article_content'] = "%s/articles/%s/?user_id=%s&instance_id=%s" % (os.getenv('CONTENT_MANAGER_DOMAIN'), 
                                                                                            article.pk, user.pk, instance.pk)
         set_attributes['article_preview'] = article.preview
         set_attributes['article_thumbail'] = article.thumbnail
@@ -991,7 +991,7 @@ class GetRecomendedArticleView(View):
         attributes = dict(  article_id=article.id, article_name=article.name,
                             article_preview=article.preview,
                             article_instance=form.data['instance'],
-                            article_content='{0}/articles/{1}/?user_id={2}&instance={3}'.format(  os.getenv('CM_DOMAIN_URL'), 
+                            article_content='{0}/articles/{1}/?user_id={2}&instance={3}'.format(  os.getenv('CONTENT_MANAGER_DOMAIN'), 
                                                                                                 article.id, 
                                                                                                 user_id,
                                                                                                 form.data['instance']))
@@ -1541,7 +1541,7 @@ class SendSessionView(View):
         
         if response['set_attributes']['request_status'] == 'done':
             try:
-                service_url = '{0}/bots/{1}/channel/{2}/send_message/'.format(os.getenv('WEBHOOK_DOMAIN_URL'),
+                service_url = '{0}/bots/{1}/channel/{2}/send_message/'.format(os.getenv('WEBHOOK_DOMAIN'),
                                                                     data['bot_id'],
                                                                     data['bot_channel_id'])
                 service_params = dict(user_channel_id=data['user_channel_id'],
@@ -1728,7 +1728,7 @@ class GetSessionFieldView(View):
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='URL not safe')))
 
         elif field.field_type == 'assign_sequence':
-            service_url = "%s/assign_to_sequence/" % os.getenv('HOT_TRIGGERS_DOMAIN')
+            service_url = "%s/assign_to_sequence/" % os.getenv('HOTTRIGGERS_DOMAIN')
             service_params = dict(data=[dict(user_id=x.user_id,
                                              bot_id=x.bot_id,
                                              channel_id=x.channel_id,
@@ -1743,7 +1743,7 @@ class GetSessionFieldView(View):
             #                                                 request_error='Failed to assign to sequence')))
 
         elif field.field_type == 'unsubscribe_sequence':
-            service_url = "%s/unsubscribe_sequence/" % os.getenv('HOT_TRIGGERS_DOMAIN')
+            service_url = "%s/unsubscribe_sequence/" % os.getenv('HOTTRIGGERS_DOMAIN')
             service_params = dict(data=[dict(user_id=x.user_id,
                                              bot_id=x.bot_id) for x in user.userchannel_set.all()],
                                   sequence_id=field.unsubscribesequence.sequence_id)
@@ -1967,7 +1967,7 @@ class GetSessionFieldView(View):
                 attribute_sequence = Attribute.objects.filter(name='sequence')
                 if attribute_sequence.exists() and condition.attribute == attribute_sequence.first():
                     #fetch names of suscribed sequences
-                    ht_url = "{0}/api/0.1/uhts/getSequences/?user_id={1}".format(os.getenv('HOT_TRIGGERS_DOMAIN'), user.id)
+                    ht_url = "{0}/api/0.1/uhts/getSequences/?user_id={1}".format(os.getenv('HOTTRIGGERS_DOMAIN'), user.id)
                     ht_response = requests.get(ht_url).json()
                     suscribed_to = ht_response['results'] if 'results' in ht_response else list()
                     
