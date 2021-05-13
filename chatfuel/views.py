@@ -181,7 +181,8 @@ class VerifyMessengerUserView(View):
         raise Http404('Not found')
 
     def post(self, request):
-        form = forms.MessengerUserForm(self.request.POST)
+        post_data = self.request.POST if len(self.request.POST) > 0 else json.loads(self.request.body)
+        form = forms.MessengerUserForm(post_data)
 
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='done', user_exist='false',
@@ -200,7 +201,8 @@ class ReplaceUserInfoView(View):
         raise Http404('Not found')
 
     def post(self, request):
-        form = forms.ReplaceUserForm(self.request.POST)
+        post_data = self.request.POST if len(self.request.POST) > 0 else json.loads(self.request.body)
+        form = forms.ReplaceUserForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Incomplete params.',
                                                          service_name='Replace Info User')))
@@ -227,7 +229,8 @@ class ChangeBotUserView(View):
         raise Http404('Not found')
 
     def post(self, request):
-        form = forms.ChangeBotUserForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.ChangeBotUserForm(post_data)
 
         if form.is_valid():
             user = form.cleaned_data['user']
@@ -246,13 +249,14 @@ class ChangeBotChannelUserView(View):
         raise Http404('Not found')
 
     def post(self, request):
-        if not ('user_id' in request.POST and 'temp_user_id' in request.POST):
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body) 
+        if not ('user_id' in post_data and 'temp_user_id' in post_data):
             return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                          request_error='Invalid params',
                                                          service_name='Change User BotChannel')))
         try:
-            user_id = int(request.POST['user_id'])
-            temp_user_id = int(request.POST['temp_user_id'])
+            user_id = int(post_data['user_id'])
+            temp_user_id = int(post_data['temp_user_id'])
         except ValueError:
             return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                          request_error='User id not valid',
@@ -287,7 +291,8 @@ class StopBotUserView(View):
         raise Http404('Not found')
 
     def post(self, request):
-        form = forms.StopBotUserForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.StopBotUserForm(post_data)
 
         if form.is_valid():
             user = form.cleaned_data['user_id']
@@ -366,7 +371,8 @@ class GetUserPreviousField(View):
 
     def post(self, request):
         try:
-            form = forms.UserForm(request.POST)
+            post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+            form = forms.UserForm(pot_data)
 
             if not form.is_valid():
                 return JsonResponse(dict(request_status='error', request_error='Invalid data', service_name='Get User Previous Field'))
@@ -396,7 +402,8 @@ class GetInstancesByUserView(View):
                                                      service_name='Get Instances')))
 
     def post(self, request):
-        form = forms.GetInstancesForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.GetInstancesForm(post_data)
 
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid data.',
@@ -431,7 +438,8 @@ class GuessInstanceByUserView(View):
                                                      service_name='Get Instances')))
 
     def post(self, request):
-        form = forms.GuessInstanceForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.GuessInstanceForm(post_data)
 
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid data.',
@@ -469,7 +477,8 @@ def create_instance(request):
             set_attributes=dict(request_status='error', request_error='Invalid Method',
                                 service_name='Create Instance')))
 
-    form = forms.InstanceModelForm(request.POST)
+    post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+    form = forms.InstanceModelForm(post_data)
 
     if not form.is_valid():
         return JsonResponse(dict(
@@ -500,7 +509,8 @@ class GetInstanceAttributeView(TemplateView):
         return c
 
     def post(self, request, *args, **kwargs):
-        form = forms.GetInstanceAttributeValue(self.request.POST)
+        post_data = self.request.POST if len(self.request.POST) > 0 else json.loads(self.request.body)
+        form = forms.GetInstanceAttributeValue([post_data])
 
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params',
@@ -544,8 +554,8 @@ class ChangeInstanceNameView(TemplateView):
         return c
 
     def post(self, request, *args, **kwargs):
-
-        form = forms.ChangeNameForm(self.request.POST)
+        post_data = self.request.POST if len(self.request.POST) > 0 else json.loads(self.request.body)
+        form = forms.ChangeNameForm(post_data)
 
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(
@@ -577,7 +587,8 @@ class VerifyCodeView(View):
                                  service_name='Verify Code'))
 
     def post(self, request):
-        form = forms.VerifyCodeForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.VerifyCodeForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params',
                                                          service_name='Verify Code')))
@@ -596,7 +607,8 @@ class ExchangeCodeView(TemplateView):
         raise Http404
 
     def post(self, request, *args, **kwargs):
-        form = group_forms.ExchangeCodeForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = group_forms.ExchangeCodeForm(post_data)
 
         if form.is_valid():
             user = form.cleaned_data['messenger_user_id']
@@ -695,8 +707,8 @@ class GetFavoriteChildView(View):
         raise Http404
 
     def post(self, request, *args, **kwargs):
-
-        form = forms.UserForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.UserForm(post_data)
         day_first = True
 
         if 'en' in form.data:
@@ -780,7 +792,8 @@ class GetLastChildView(View):
         raise Http404
 
     def post(self, request, *args, **kwargs):
-        form = forms.UserForm(self.request.POST)
+        post_data = self.request.POST if len(self.request.POST) > 0 else json.loads(self.request.body)
+        form = forms.UserForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(
                 request_status='error',
@@ -823,7 +836,8 @@ class GetArticleView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.UserArticleForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.UserArticleForm(post_data)
         user = User.objects.get(id=form.data['user_id'])
         print(user)
         set_attributes = dict(
@@ -849,7 +863,7 @@ class GetArticleView(View):
                 new_interaction.instance_id = form.data['instance']
                 new_interaction.save()
                 set_attributes['article_content'] = "%s%s" % (set_attributes['article_content'], 
-                                                              "&instance=%s" % request.POST['instance'])
+                                                              "&instance=%s" % post_data['instance'])
 
             return JsonResponse(dict(set_attributes=set_attributes))
 
@@ -908,7 +922,8 @@ class GetRecomendedArticleView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.UserArticleForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.UserArticleForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(status='error', error='Invalid params.')))
         
@@ -1019,7 +1034,8 @@ class GetArticleTextView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.ArticleForm(self.request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.ArticleForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(request_status='error', request_error='Article not exist.'))
         split_content = form.cleaned_data['article'].text_content.split('|')
@@ -1034,7 +1050,8 @@ class GetArticleImageView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.ArticleForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.ArticleForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(request_status='error', request_error='Article not exist.'))
 
@@ -1079,7 +1096,8 @@ class GetMilestoneView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.InstanceForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.InstanceForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
 
@@ -1154,7 +1172,8 @@ class GetProgramMilestoneView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.InstanceForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.InstanceForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
 
@@ -1252,7 +1271,8 @@ class GetProgramRisksMilestoneView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.InstanceForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.InstanceForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
 
@@ -1274,7 +1294,8 @@ class GetInstanceMilestoneView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.InstanceForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.InstanceForm(post_data)
 
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
@@ -1495,7 +1516,8 @@ class GetSessionView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.SessionForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.SessionForm(post_data)
 
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
@@ -1569,7 +1591,8 @@ class GetSessionFieldView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.SessionFieldForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.SessionFieldForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
         
@@ -2064,7 +2087,8 @@ class SaveLastReplyView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.SessionFieldReplyForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.SessionFieldReplyForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
         
@@ -2280,16 +2304,17 @@ class SaveReminderDateTimeView(View):
                                                      service_name='Get Reminder Datetime')))
 
     def post(self, request):
-        input_attribute_name = request.POST['attribute_name']
-        user = MessengerUser.objects.all().filter(id=int(request.POST['user_id']))
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        input_attribute_name = post_data['attribute_name']
+        user = MessengerUser.objects.all().filter(id=int(post_data['user_id']))
         
         if not user.exists() or not input_attribute_name:
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid data.',
                                                          service_name='Save Reminder Datetime')))
         user = user.first()
-        country = str(request.POST['country']).lower().strip() if 'country' in request.POST else 'guatemala'
-        input_time = str(request.POST['time']).lower().strip() if 'time' in request.POST else 'noche'
-        input_day = str(request.POST['week_day']).lower().strip() if 'week_day' in request.POST else 'viernes'
+        country = str(post_data['country']).lower().strip() if 'country' in post_data else 'guatemala'
+        input_time = str(post_data['time']).lower().strip() if 'time' in post_data else 'noche'
+        input_day = str(post_data['week_day']).lower().strip() if 'week_day' in post_data else 'viernes'
         
         try:
             # Timezone
@@ -2363,7 +2388,8 @@ class BlockRedirectView(View):
         raise Http404('Not found')
 
     def post(self, request, *args, **kwargs):
-        form = forms.BlockRedirectForm(self.request.POST or None)
+        post_data = self.request.POST if len(self.request.POST) > 0 else json.loads(self.request.body)
+        form = forms.BlockRedirectForm(post_data or None)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='Error',
                                                          request_error='Next field not found.'),
@@ -2381,7 +2407,8 @@ class ValidatesDateView(View):
         raise Http404('Not found')
 
     def post(self, request):
-        form = forms.ValidatesDateForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.ValidatesDateForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_message='Invalid params')))
 
@@ -2395,7 +2422,8 @@ class CalculateWeeksView(View):
         raise Http404('Not found')
 
     def post(self, request):
-        form = forms.SingleDateForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.SingleDateForm(post_data)
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                          request_error='Invalid params')))
@@ -2431,7 +2459,8 @@ class SetDefaultDateValueView(View):
         raise Http404('Not found')
 
     def post(self, request):
-        form = forms.SetDefaultDateValueForm(request.POST)
+        post_data = request.POST if len(request.POST) > 0 else json.loads(request.body)
+        form = forms.SetDefaultDateValueForm(post_data)
         if not form.is_valid() or not form.data['level_number']:
             return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                          request_error='Invalid params.')))
