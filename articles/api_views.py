@@ -25,6 +25,7 @@ class ArticleViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
 
         if self.request.query_params.get('options'):
+            self.pagination_class = None
             self.serializer_class = serializers.ArticleOptionsSerializer
 
         return qs.order_by('name')
