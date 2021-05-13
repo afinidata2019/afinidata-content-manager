@@ -15,7 +15,7 @@ class Pagination(PageNumberPagination):
 class ArticleIntentViewSet(viewsets.ModelViewSet):
 
     queryset = models.Intent.objects.all()
-    serializer_class = serializers.IntentSerializer
+    serializer_class = serializers.IntentArticleSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['=id', '=intent_id']
     pagination_class = Pagination
@@ -51,7 +51,7 @@ class ArticleIntentViewSet(viewsets.ModelViewSet):
             intent = intents.first()
             intents.exclude(id=intent.id).delete()
         
-        serializer = self.serializer_class(intent)
+        serializer = serializer.IntentSerializer(intent)
         return Response(serializer.data)
 
 
