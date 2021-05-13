@@ -3,6 +3,20 @@ from rest_framework import serializers
 from articles.models import Intent, Article
 
 
+class ArticleSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Article
+        fields = '__all__'
+
+
+class ArticleOptionsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Article
+        fields = ['id', 'name']
+
+
 class ArticleSimpleSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
     

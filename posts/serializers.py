@@ -10,6 +10,20 @@ class PostComplexitySerializer(serializers.ModelSerializer):
         fields = ('post', 'user_id', 'months', 'complexity')
 
 
+class PostSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Post
+        fields = '__all__'
+
+
+class PostOptionsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Post
+        fields = ['id', 'name']
+
+
 class PostSimpleSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
     

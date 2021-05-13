@@ -11,6 +11,24 @@ class Pagination(PageNumberPagination):
     page_size = 100
     page_query_param = 'pagenumber'
 
+class PostViewSet(viewsets.ModelViewSet):
+
+    queryset = models.Post.objects.all()
+    serializer_class = serializers.PostSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['=id', 'name', 'type', 'status']
+    http_method_names = ['get', 'head', 'options']
+    pagination_class = Pagination
+
+    def get_queryset(self):
+
+        qs = super().get_queryset()
+
+        if self.request.query_params.get('options'):
+            self.serializer_class = serializers.PostOptionsSerializer
+
+        return qs.order_by('name')
+
 
 class PostIntentViewSet(viewsets.ModelViewSet):
 
