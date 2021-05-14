@@ -70,7 +70,7 @@ class PostIntentViewSet(viewsets.ModelViewSet):
             intent = intents.first()
             intents.exclude(id=intent.id).delete()
 
-        serializer = serializer.IntentSerializer(intent)
+        serializer = serializers.IntentSerializer(intent)
         return Response(serializer.data)
 
 
