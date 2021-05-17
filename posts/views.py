@@ -870,7 +870,7 @@ def get_posts_for_user(request):
             intent_posts = posts.filter(id__in=list(intent_posts))
              # set artilce pool and remove previous intent 
             if intent_posts.exists():
-                posts = intent_posts
+                posts = intent_posts.order_by('?')
                 last_intent.update(data_value='')
         
         # take first post
