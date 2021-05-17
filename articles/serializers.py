@@ -21,7 +21,7 @@ class ArticleSimpleSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
     
     def get_url(self, obj):
-        service_url = '{0}/articles/{1}/info/'.format(os.getenv('CM_DOMAIN_URL'), obj.id)
+        service_url = '{0}/articles/{1}/info/'.format(os.getenv('CONTENT_MANAGER_DOMAIN'), obj.id)
         return service_url
 
     class Meta:
