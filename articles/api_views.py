@@ -12,10 +12,29 @@ class Pagination(PageNumberPagination):
     page_query_param = 'pagenumber'
 
 
+class ArticleViewSet(viewsets.ModelViewSet):
+
+    queryset = models.Article.objects.all()
+    serializer_class = serializers.ArticleSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['=id', 'name', 'area', 'status']
+    http_method_names = ['get', 'head', 'options']
+    pagination_class = Pagination
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+
+        if self.request.query_params.get('options'):
+            self.pagination_class = None
+            self.serializer_class = serializers.ArticleOptionsSerializer
+
+        return qs.order_by('name')
+
+
 class ArticleIntentViewSet(viewsets.ModelViewSet):
 
     queryset = models.Intent.objects.all()
-    serializer_class = serializers.IntentSerializer
+    serializer_class = serializers.IntentArticleSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['=id', '=intent_id']
     pagination_class = Pagination
@@ -51,7 +70,7 @@ class ArticleIntentViewSet(viewsets.ModelViewSet):
             intent = intents.first()
             intents.exclude(id=intent.id).delete()
         
-        serializer = self.serializer_class(intent)
+        serializer = serializers.IntentSerializer(intent)
         return Response(serializer.data)
 
 
