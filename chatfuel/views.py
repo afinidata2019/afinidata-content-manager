@@ -1,6 +1,7 @@
 from articles.models import Article, Interaction as ArticleInteraction, ArticleFeedback, Intent as ArticleIntent, Missing as MissingArticles
 from attributes.models import Attribute
 from bots.models import Interaction as BotInteraction, UserInteraction
+from chatfuel import forms
 from entities.models import Entity
 from groups import forms as group_forms
 from groups.models import Code, AssignationMessengerUser, Group, MilestoneRisk
@@ -12,6 +13,10 @@ from messenger_users.models import User, UserData
 from milestones.models import Milestone
 from programs.models import Program, Attributes as ProgramAttributes
 from user_sessions.models import Session, Interaction as SessionInteraction, Reply, Field, Lang
+from utilities.general_log import GeneralLog
+
+from datetime import datetime, timedelta
+from dateutil import relativedelta, parser
 from django.utils import timezone
 from django.utils.http import is_safe_url
 from django.utils.decorators import method_decorator
@@ -21,16 +26,13 @@ from django.views.generic import View, CreateView, TemplateView, UpdateView
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, Http404
 from requests.auth import HTTPBasicAuth
-from dateutil import relativedelta, parser
-from datetime import datetime, timedelta
-from chatfuel import forms
-import requests
-import pytz
-import json
-import random
 import boto3
+import json
 import os
+import pytz
+import random
 import re
+import requests
 
 
 ''' MESSENGER USERS VIEWS '''
@@ -1537,10 +1539,13 @@ class SendSessionView(View):
             data = request.POST.dict()
         else:
             data = json.loads(request.body)
-
+        
+        log = GeneralLog(data)
+        log.add_main(dict(section='SendSessionView Post', payload=json.dumps(data)))
         form = forms.SessionForm(data)
 
         if not form.is_valid():
+            log.update_main(dict(message='Invalid params.'))
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
 
         # check if user is in the 24hr windows
@@ -1550,10 +1555,13 @@ class SendSessionView(View):
         if in_window.exists():
             in_window = in_window.last().get_last_user_message_date(check_window=True)                               
             if 'tags' not in data and not in_window:
-                return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='No se asignó la sesión, \n Usuario fuera de la ventanda de 24hrs')))
+                msg = 'No se asignó la sesión, \n Usuario fuera de la ventanda de 24hrs'
+                log.update_main(dict(message=msg))
+                return JsonResponse(dict(set_attributes=dict(request_status='error', request_error=msg)))
         else:
             msg = 'No se encontró el user_channel \n  bot_id: {0}, user_channel_id:{1}'.format( data['bot_id'], 
                                                                                                 data['user_channel_id'])
+            log.update_main(dict(message=msg))
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error=msg)))
         
         position = 0
@@ -1566,8 +1574,9 @@ class SendSessionView(View):
                 service_url = '{0}/bots/{1}/channel/{2}/send_message/'.format(os.getenv('WEBHOOK_DOMAIN'),
                                                                     data['bot_id'],
                                                                     data['bot_channel_id'])
-                service_params = dict(user_channel_id=data['user_channel_id'],
-                                    message='hot_trigger_start_session')
+                service_params = dict(  user_channel_id=data['user_channel_id'],
+                                        message='hot_trigger_start_session',
+                                        log=log.get_request_id())
 
                 if 'tags' in data:
                     service_params['tags'] = data['tags']
@@ -1575,11 +1584,14 @@ class SendSessionView(View):
                 service_response = requests.post(service_url, json=service_params)
                 response_json = service_response.json()
 
+                log.update_main(dict(status_code=200, message=json.dumps(response_json)))
                 return JsonResponse(response_json)
             except Exception as e:
+                log.add(dict(section='SendSessionView Post - send_message', message=str(e)))
                 return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                          request_error=str(e), type="Send session")))
         
+        log.update_main(dict(message='Failed to set session to user, get_session response {0}'.format(json.dumps(response))))
         return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                          request_error='Failed to set session to user')))
 

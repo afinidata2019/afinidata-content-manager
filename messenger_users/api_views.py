@@ -4,7 +4,7 @@ import re
 import requests
 import dateutil.parser
 from datetime import datetime, timedelta, time
-from django.db.models import Q, Exists
+from django.db.models import Q, Exists, Prefetch
 from django.db.models.aggregates import Max
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -259,17 +259,19 @@ class UserViewSet(viewsets.ModelViewSet):
     def user_conversations(self, request):
         queryset = models.User.objects.all()
         # Filter by bot if necessary
-        if request.query_params.get("bot_id"):
+        if request.query_params.get('bot_id'):
             queryset = queryset.filter(userchannel__bot_id=self.request.query_params.get('bot_id')).distinct()
-        if request.query_params.get("live_chat"):
-            if self.request.query_params.get('live_chat') == 'True':
+        
+        if request.query_params.get('live_chat'):
+            if self.request.query_params.get('live_chat').lower() == 'true':
                 queryset = queryset.filter(userchannel__live_chat=self.request.query_params.get('live_chat')).distinct()
             else:
                 date = datetime.now() - timedelta(days=30)
                 queryset = queryset.filter(userchannel__livechat__created_at__gte=date).distinct()
+       
         # Filter by name
         filter_search = Q()
-        if request.query_params.get("search"):
+        if request.query_params.get('search'):
             # search by queryparams
             params = ['username', 'first_name', 'last_name']
             for x in params:
@@ -277,10 +279,12 @@ class UserViewSet(viewsets.ModelViewSet):
             if self.request.query_params.get('search').isnumeric():
                 filter_search |= Q(id=self.request.query_params.get('search'))
             queryset = queryset.filter(filter_search)
+        
         pagination = PageNumberPagination()
         pagination.page_size = 20
         queryset = queryset.annotate(last_interaction=Max('userchannel__interaction__id')).order_by('-last_interaction')
         qs = pagination.paginate_queryset(queryset, request)
+        
         serializer = serializers.UserConversationSerializer(qs, many=True)
         return pagination.get_paginated_response(serializer.data)
 

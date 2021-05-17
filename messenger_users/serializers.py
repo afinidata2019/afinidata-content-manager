@@ -9,7 +9,6 @@ from instances.models import Instance
 
 class UserSerializer(serializers.ModelSerializer):
     profile_pic = serializers.ReadOnlyField()
-    last_message = serializers.ReadOnlyField()
     last_bot_id = serializers.ReadOnlyField()
     bot_channel_id = serializers.ReadOnlyField()
     user_channel_id = serializers.ReadOnlyField()
@@ -29,7 +28,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'first_name', 'last_name', 'username', 'last_seen', 'backup_key', 'license', 'language',
                   'last_channel_interaction', 'window', 'channel_id', 'user_channel_id', 'bot_channel_id', 'bot_id', 'profile_pic',
-                  'last_message', 'last_bot_id', 'created_at', 'updated_at', 'entity','instances']
+                  'last_bot_id', 'created_at', 'updated_at', 'entity','instances']
 
 
 class UserConversationSerializer(serializers.ModelSerializer):
