@@ -1703,7 +1703,7 @@ class GetSessionFieldView(View):
                     return JsonResponse(dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
                 service_url = rta['response']
                 whitelist = os.getenv('CONSUME_SERVICE_URLS').split(',')
-                if is_safe_url(service_url, allowed_hosts={*whitelist}, require_https=False):
+                if is_safe_url(service_url, allowed_hosts={*whitelist}, require_https=True):
                     service_params = {}
                     for param in field.service.serviceparam_set.all():
                         rta = replace_text_attributes(param.value, instance, user)
