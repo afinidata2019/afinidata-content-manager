@@ -1634,6 +1634,7 @@ class GetSessionFieldView(View):
                     position = user.userdata_set.filter(attribute__name='position').last().data_value
                 else:
                     position = 0
+            
             field = session.field_set.filter(position=int(position))
             response = dict()
             attributes = dict()
@@ -1703,7 +1704,7 @@ class GetSessionFieldView(View):
                     return JsonResponse(dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
                 service_url = rta['response']
                 whitelist = os.getenv('CONSUME_SERVICE_URLS').split(',')
-                if is_safe_url(service_url, allowed_hosts={*whitelist}, require_https=True):
+                if is_safe_url(service_url, allowed_hosts={*whitelist}, require_https=False):
                     service_params = {}
                     for param in field.service.serviceparam_set.all():
                         rta = replace_text_attributes(param.value, instance, user)
@@ -1714,8 +1715,17 @@ class GetSessionFieldView(View):
                     if field.service.available_service.request_type == 'get':
                         service_response = requests.get(service_url, params=service_params)
                     else:
-                        service_response = requests.post(service_url, data=service_params)
+                        service_response = requests.post(service_url, data=service_params)          
                     response_json = service_response.json()
+                    
+                    if fields.last().position < response_field:
+                        finish = 'true'
+                        # Guardar interaccion
+                        SessionInteraction.objects.create(  user_id=user.id,
+                                                            instance_id=instance_id,
+                                                            type='session_finish',
+                                                            field=field,
+                                                            session=session)
                     if 'set_attributes' not in response_json:
                         response_json['set_attributes'] = dict()
                     if 'session_finish' not in response_json['set_attributes']:
@@ -1728,6 +1738,7 @@ class GetSessionFieldView(View):
                         response_json['set_attributes']['save_user_input'] = False
                     if 'session' not in response_json['set_attributes']:
                         response_json['set_attributes']['session'] = session.id
+
                     # If service returns quick replies
                     if 'messages' in response_json:
                         service_replies = False
