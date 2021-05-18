@@ -323,7 +323,10 @@ class StatisticsView(TemplateView):
 
         intents = list(models.Intent.objects.values_list('intent_id', flat=True).filter(post__id=kwargs['id']))
         if intents:
-            nlu_response = requests.post(os.getenv('NLU_API') + '/intents/get_names/', json=dict(ids=intents)).json()
+            try:
+                nlu_response = requests.post(os.getenv('NLU_API') + '/intents/get_names/', json=dict(ids=intents)).json()
+            except Exception as e:
+                nlu_response = dict()
             intents = nlu_response['results'] if 'results' in nlu_response else list()
         context['intents'] = intents
 
