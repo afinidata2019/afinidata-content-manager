@@ -87,7 +87,7 @@ def translate_locale_posts(language_origin = 'en',
       .exclude(post__in=excluded_posts) \
       .filter(lang = language_origin, post_id__in=posts_array_id)
 
-    # Get al posts that doesnt have an lenguage_destination translation
+    # # Get al posts that doesnt have an lenguage_destination translation
     done = Post.objects.filter(postlocale__lang=language_destination)
     excluded_posts = set()
 
@@ -97,15 +97,20 @@ def translate_locale_posts(language_origin = 'en',
     post_to_translate = Post.objects.exclude(id__in=excluded_posts) \
         .filter(content__startswith=AFINICONTENT_URL)
 
+    #post_to_translate = Post.objects.filter(id=291, postlocale__lang=language_origin)
     translated_posts = []
 
     for post in post_to_translate:
+        current_post_locale = PostLocale.objects.filter(post_id=post.id, lang=language_origin).first()
+
         post_name = post.content \
           .replace(AFINICONTENT_URL+'/', '') \
           .replace('/', '')
 
+        current_slug = current_post_locale.link_post.split("/")[3]
+
         # Get the content from the wordpress API
-        wordpress_post = get_post_from_wordpress(post_slug = post_name)
+        wordpress_post = get_post_from_wordpress(post_slug = current_slug)
 
         # Separate text to avoid translating HTML tags, we only need to translate plain text
         text_html = " " + wordpress_post['content']['rendered'].replace("^", "")
@@ -172,7 +177,7 @@ def translate_locale_posts(language_origin = 'en',
                                    post_id=post.id)
         # new_post_locale.save()
 
-        print("ID:", post.id, "Translated:", title, "Image:")
+        print("ID:", post.id, "Translated:", title, "Image:", "url: ", url)
 
         translated_posts.append(dict(post = post.id,
                                      post_locale=new_post_locale.id,
