@@ -95,7 +95,7 @@ def translate_locale_posts(language_origin = 'en',
         excluded_posts.add(d.id)
 
     post_to_translate = Post.objects.exclude(id__in=excluded_posts) \
-        .filter(content__startswith=AFINICONTENT_URL)
+        .filter(content__startswith=AFINICONTENT_URL, id__in=posts_array_id)
 
     translated_posts = []
 
@@ -106,7 +106,7 @@ def translate_locale_posts(language_origin = 'en',
 
         # Get the content from the wordpress API
         wordpress_post = get_post_from_wordpress(post_slug = post_name)
-
+        print("START: ", post_name)
         # Separate text to avoid translating HTML tags, we only need to translate plain text
         text_html = " " + wordpress_post['content']['rendered'].replace("^", "")
         title = post.name
