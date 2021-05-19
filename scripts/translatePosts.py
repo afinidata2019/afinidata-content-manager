@@ -95,7 +95,7 @@ def translate_locale_posts(language_origin = 'en',
         excluded_posts.add(d.id)
 
     post_to_translate = Post.objects.exclude(id__in=excluded_posts) \
-        .filter(content__startswith=AFINICONTENT_URL)
+        .filter(content__startswith=AFINICONTENT_URL, id__in=posts_array_id)
 
     #post_to_translate = Post.objects.filter(id=291, postlocale__lang=language_origin)
     translated_posts = []
