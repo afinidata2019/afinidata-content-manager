@@ -1608,39 +1608,41 @@ class GetSessionFieldView(View):
         if not form.is_valid():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Invalid params.')))
         
-        try:
-            # user data check attribute session finished
-            user = form.cleaned_data['user_id']
-            if user.userdata_set.filter(attribute__name='session_finish').exists():
-                session_finish = user.userdata_set.filter(attribute__name='session_finish').last().data_value
-                if session_finish == 'true':
-                    return JsonResponse(dict(set_attributes=dict(session_finish=session_finish)))
-            
-            # user data check for instance
-            if form.cleaned_data['instance']:
-                instance = form.cleaned_data['instance']
+        # user data check attribute session finished
+        user = form.cleaned_data['user_id']
+        if user.userdata_set.filter(attribute__name='session_finish').exists():
+            session_finish = user.userdata_set.filter(attribute__name='session_finish').last().data_value
+            if session_finish == 'true':
+                return JsonResponse(dict(set_attributes=dict(session_finish=session_finish)))
+        
+        # user data check for instance
+        if form.cleaned_data['instance']:
+            instance = form.cleaned_data['instance']
+        else:
+            if user.userdata_set.filter(attribute__name='instance').exists():
+                instance = Instance.objects.get(id=user.userdata_set.
+                                                filter(attribute__name='instance').last().data_value)
             else:
-                if user.userdata_set.filter(attribute__name='instance').exists():
-                    instance = Instance.objects.get(id=user.userdata_set.
-                                                    filter(attribute__name='instance').last().data_value)
-                else:
-                    instance = None
-            instance_id = None
-            if instance:
-                instance_id = instance.id
-            
-            # user data  get current session
-            if form.cleaned_data['session']:
-                session = form.cleaned_data['session']
+                instance = None
+        instance_id = None
+        if instance:
+            instance_id = instance.id
+        
+        # user data  get current session
+        if form.cleaned_data['session']:
+            session = form.cleaned_data['session']
+        else:
+            if user.userdata_set.filter(attribute__name='session').exists():
+                session = Session.objects.get(id=user.userdata_set.filter(attribute__name='session').last().data_value)
             else:
-                if user.userdata_set.filter(attribute__name='session').exists():
-                    session = Session.objects.get(id=user.userdata_set.filter(attribute__name='session').last().data_value)
-                else:
-                    return JsonResponse(dict(set_attributes=dict(request_status='error',
-                                                                request_error='User has no session')))
-            # user attribute positon
-            if form.cleaned_data['position']:
-                position = form.cleaned_data['position']
+                return JsonResponse(dict(set_attributes=dict(request_status='error',
+                                                             request_error='User has no session')))
+        # user attribute positon
+        if form.cleaned_data['position']:
+            position = form.cleaned_data['position']
+        else:
+            if user.userdata_set.filter(attribute__name='position').exists():
+                position = user.userdata_set.filter(attribute__name='position').last().data_value
             else:
                 if user.userdata_set.filter(attribute__name='position').exists():
                     position = user.userdata_set.filter(attribute__name='position').last().data_value
@@ -1651,45 +1653,50 @@ class GetSessionFieldView(View):
             response = dict()
             attributes = dict()
 
-            if not field.exists():
-                return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Field doesn\'t exists.')))
+        if not field.exists():
+            return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Field not exists.')))
 
-            field = field.first()
-            fields = session.field_set.all().order_by('position')
-            attributes['previous_field_id'] = field.id
-            finish = 'false'
-            response_field = field.position + 1
-            if field.position == 0:
-                attributes['previous_field_id'] = False
-                # Guardar interaccion
-                SessionInteraction.objects.create(user_id=user.id,
-                                                instance_id=instance_id,
-                                                type='broadcast_init',
-                                                session=session)
-                # Guardar atributos de riesgo en chatfuel
-                interactions = SessionInteraction.objects.filter(instance_id=instance_id)
-                for program_attribute in ProgramAttributes.objects.filter(attribute__entity__in=[1, 2]):# child or pregnant
-                    a = AttributeValue.objects.filter(instance_id=instance_id,
-                                                    attribute=program_attribute.attribute).order_by('id')
-                    if a.exists():
+        field = field.first()
+        fields = session.field_set.all().order_by('position')
+        attributes['previous_field_id'] = field.id
+        finish = 'false'
+        response_field = field.position + 1
+        if field.position == 0:
+            attributes['previous_field_id'] = False
+            # Guardar interaccion
+            SessionInteraction.objects.create(user_id=user.id,
+                                              instance_id=instance_id,
+                                              type='broadcast_init',
+                                              session=session)
+            # Guardar atributos de riesgo en chatfuel
+            interactions = SessionInteraction.objects.filter(instance_id=instance_id)
+            for program_attribute in ProgramAttributes.objects.filter(attribute__entity__in=[1, 2]):# child or pregnant
+                a = AttributeValue.objects.filter(instance_id=instance_id,
+                                                  attribute=program_attribute.attribute).order_by('id')
+                if a.exists():
+                    reply = Reply.objects.filter(attribute=program_attribute.attribute.id,
+                                                 value=a.last().value,
+                                                 field_id__in=[x.field_id for x in interactions])
+                    if reply.exists():
+                        attributes[program_attribute.attribute.name] = reply.last().label
+                    else:
                         reply = Reply.objects.filter(attribute=program_attribute.attribute.id,
-                                                    value=a.last().value,
-                                                    field_id__in=[x.field_id for x in interactions])
+                                                     value=a.last().value)
                         if reply.exists():
                             attributes[program_attribute.attribute.name] = reply.last().label
                         else:
-                            reply = Reply.objects.filter(attribute=program_attribute.attribute.id,
-                                                        value=a.last().value)
-                            if reply.exists():
-                                attributes[program_attribute.attribute.name] = reply.last().label
-                            else:
-                                attributes[program_attribute.attribute.name] = a.last().value
-                for program_attribute in ProgramAttributes.objects.filter(attribute__entity__in=[4, 5]):# caregiver/professional
-                    a = UserData.objects.filter(user=user, attribute=program_attribute.attribute).order_by('id')
-                    if a.exists():
+                            attributes[program_attribute.attribute.name] = a.last().value
+            for program_attribute in ProgramAttributes.objects.filter(attribute__entity__in=[4, 5]):# caregiver/professional
+                a = UserData.objects.filter(user=user, attribute=program_attribute.attribute).order_by('id')
+                if a.exists():
+                    reply = Reply.objects.filter(attribute=program_attribute.attribute.id,
+                                                 value=a.last().data_value,
+                                                 field_id__in=[x.field_id for x in interactions])
+                    if reply.exists():
+                        attributes[program_attribute.attribute.name] = reply.last().label
+                    else:
                         reply = Reply.objects.filter(attribute=program_attribute.attribute.id,
-                                                    value=a.last().data_value,
-                                                    field_id__in=[x.field_id for x in interactions])
+                                                     value=a.last().data_value)
                         if reply.exists():
                             attributes[program_attribute.attribute.name] = reply.last().label
                         else:
@@ -1715,8 +1722,12 @@ class GetSessionFieldView(View):
                 if rta['status'] == 'error':
                     return JsonResponse(dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
                 service_url = rta['response']
-                whitelist = os.getenv('CONSUME_SERVICE_URLS').split(',')
-                if is_safe_url(service_url, allowed_hosts={*whitelist}, require_https=False):
+                if is_safe_url(service_url, allowed_hosts={ os.getenv('CORE'),
+                                                            os.getenv('HOTTRIGGERS'),
+                                                            os.getenv('PROGRAM'),
+                                                            os.getenv('CONTENT_MANAGER'),
+                                                            os.getenv('WEBHOOK')
+                                                           }, require_https=True):
                     service_params = {}
                     for param in field.service.serviceparam_set.all():
                         rta = replace_text_attributes(param.value, instance, user)
@@ -1846,61 +1857,150 @@ class GetSessionFieldView(View):
                             return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                                         request_error='user_type not valid. Must be a valid Entity (%s)' % valid_entities)))
 
-            elif field.field_type == 'text' or field.field_type == 'one_time_notification':
-                for m in field.message_set.all():
-                    rta = replace_text_attributes(m.text, instance, user)
+        attributes['save_text_reply'] = False
+        attributes['save_user_input'] = False
+        messages = []
+
+        if field.field_type == 'consume_service':
+            rta = replace_text_attributes(field.service.available_service.url, instance, user)
+            if rta['status'] == 'error':
+                return JsonResponse(dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+            service_url = rta['response']
+            if is_safe_url(service_url, allowed_hosts={ os.getenv('CORE'),
+                                                        os.getenv('HOTTRIGGERS'),
+                                                        os.getenv('PROGRAM'),
+                                                        os.getenv('CONTENT_MANAGER'),
+                                                        os.getenv('WEBHOOK')
+                                                        }, require_https=True):
+                service_params = {}
+                for param in field.service.serviceparam_set.all():
+                    rta = replace_text_attributes(param.value, instance, user)
                     if rta['status'] == 'error':
                         return JsonResponse(
                             dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                    new_text = rta['response']
-                    if session.field_set.filter(field_type='buttons', position=field.position + 1).exists():
-                        buttons = []
-                        for b in session.field_set.\
-                                filter(field_type='buttons', position=field.position + 1).first().button_set.all():
-                            if b.button_type == 'show_block':
-                                rta = replace_text_attributes(b.block_names, instance, user)
-                                if rta['status'] == 'error':
-                                    return JsonResponse(
-                                        dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                                block_names = rta['response']
-                                rta = replace_text_attributes(b.title, instance, user)
-                                if rta['status'] == 'error':
-                                    return JsonResponse(
-                                        dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                                title = rta['response']
-                                buttons.append(dict(type=b.button_type,
-                                                    block_names=[block_names],
-                                                    title=title))
-                            else:
-                                rta = replace_text_attributes(b.url, instance, user)
-                                if rta['status'] == 'error':
-                                    return JsonResponse(
-                                        dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                                url = rta['response']
-                                rta = replace_text_attributes(b.title, instance, user)
-                                if rta['status'] == 'error':
-                                    return JsonResponse(
-                                        dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                                title = rta['response']
-                                buttons.append(dict(type=b.button_type,
-                                                    url=url,
-                                                    title=title))
-                        messages.append(dict(attachment=dict(type="template",
-                                                            payload=dict(template_type="button",
-                                                                        text=new_text,
-                                                                        buttons=buttons))))
-                        response_field = response_field + 1
-                    else:
-                        messages.append(dict(text=new_text))
-                    
-                    if field.field_type == 'one_time_notification':
-                        messages[-1]['OTN'] = True
+                    service_params[param.parameter] = rta['response']
+                if field.service.available_service.request_type == 'get':
+                    service_response = requests.get(service_url, params=service_params)
+                else:
+                    service_response = requests.post(service_url, data=service_params)
+                response_json = service_response.json()
+                if 'set_attributes' not in response_json:
+                    response_json['set_attributes'] = dict()
+                if 'session_finish' not in response_json['set_attributes']:
+                    response_json['set_attributes']['session_finish'] = finish
+                if 'position' not in response_json['set_attributes']:
+                    response_json['set_attributes']['position'] = response_field
+                if 'save_text_reply' not in response_json['set_attributes']:
+                    response_json['set_attributes']['save_text_reply'] = False
+                if 'save_user_input' not in response_json['set_attributes']:
+                    response_json['set_attributes']['save_user_input'] = False
+                if 'session' not in response_json['set_attributes']:
+                    response_json['set_attributes']['session'] = session.id
+                # If service returns quick replies
+                if 'messages' in response_json:
+                    service_replies = False
+                    for message in response_json['messages']:
+                        if 'quick_replies' in message:
+                            message['quick_reply_options'] = dict(process_text_by_ai=False, text_attribute_name='last_reply')
+                            messages.append(message)
+                            service_replies = True
+                    if service_replies:
+                        response['messages'] = messages
+                        attributes['save_text_reply'] = True
+                        attributes['field_id'] = field.id
+                        attributes['session_finish'] = finish
+                        attributes['position'] = response_field
+                        save_json_attributes(dict(set_attributes=attributes), instance, user)
+                        response['set_attributes'] = attributes
+                        return JsonResponse(response)
+                save_json_attributes(response_json, instance, user)
+                return JsonResponse(response_json)
+            return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='URL not safe')))
 
-            elif field.field_type == 'image':
-                m = field.message_set.first()
+        elif field.field_type == 'assign_sequence':
+            service_url = "%s/assign_to_sequence/" % os.getenv('HOTTRIGGERS_DOMAIN')
+            service_params = dict(data=[dict(user_id=x.user_id,
+                                             bot_id=x.bot_id,
+                                             channel_id=x.channel_id,
+                                             user_channel_id=x.user_channel_id,
+                                             bot_channel_id=x.bot_channel_id) for x in user.userchannel_set.all()],
+                                  sequence_id=field.assignsequence.sequence_id,
+                                  start_position=field.assignsequence.start_position)
+            service_response = requests.post(service_url, json=service_params)
+            #response_json = service_response.json()
+            #if response_json.status_code != 200:
+            #    return JsonResponse(dict(set_attributes=dict(request_status='error',
+            #                                                 request_error='Failed to assign to sequence')))
+
+        elif field.field_type == 'unsubscribe_sequence':
+            service_url = "%s/unsubscribe_sequence/" % os.getenv('HOTTRIGGERS_DOMAIN')
+            service_params = dict(data=[dict(user_id=x.user_id,
+                                             bot_id=x.bot_id) for x in user.userchannel_set.all()],
+                                  sequence_id=field.unsubscribesequence.sequence_id)
+            service_response = requests.post(service_url, json=service_params)
+
+        elif field.field_type == 'set_attributes':
+            for a in field.setattribute_set.all():
+                rta = replace_text_attributes(a.value, instance, user)
+                if rta['status'] == 'error':
+                    return JsonResponse(
+                        dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+                attribute_value = rta['response']
+                try:
+                    attribute_value = eval(attribute_value)
+                except (SyntaxError, NameError, TypeError, ZeroDivisionError):
+                    pass
+                attributes[a.attribute.name] = attribute_value
+                # Guardar atributo instancia o embarazo
+                if Entity.objects.get(id=1).attributes.filter(name=a.attribute.name).exists() \
+                        or Entity.objects.get(id=2).attributes.filter(name=a.attribute.name).exists():
+                    attribute = Attribute.objects.filter(name=a.attribute.name)
+                    if attribute.exists():
+                        AttributeValue.objects.create(instance=instance, attribute=attribute.first(),
+                                                      value=attribute_value)
+                    else:
+                        return JsonResponse(dict(set_attributes=dict(request_status='error',
+                                                                     request_error='Attribute does not exist')))
+                # Guardar atributo usuario
+                if Entity.objects.get(id=4).attributes.filter(name=a.attribute.name).exists() \
+                        or Entity.objects.get(id=5).attributes.filter(name=a.attribute.name).exists():
+                    UserData.objects.create(user=user, data_key=a.attribute.name, attribute=a.attribute,
+                                            data_value=attribute_value)
+                if a.attribute.name == 'tipo_de_licencia':
+                    if License.objects.filter(name=attribute_value).count() == 1:
+                        user.license = License.objects.get(name=attribute_value)
+                        user.save()
+                    else:
+                        valid_licences = ','.join([x.name for x in License.objects.all()])
+                        return JsonResponse(dict(set_attributes=dict(request_status='error',
+                                                                     request_error='tipo_de_licencia not valid. Must be a valid License (%s)' % valid_licences)))
+                if a.attribute.name == 'language':
+                    if Language.objects.filter(name=attribute_value).count() == 1:
+                        user.language = Language.objects.get(name=attribute_value)
+                        user.save()
+                    else:
+                        valid_language = ','.join([x.name for x in Language.objects.all()])
+                        return JsonResponse(dict(set_attributes=dict(request_status='error',
+                                                                     request_error='language not valid. Must be a valid Language (%s)' % valid_language)))
+                if a.attribute.name == 'user_type':
+                    if Entity.objects.filter(name=attribute_value).count() == 1:
+                        user.entity = Entity.objects.get(name=attribute_value)
+                        user.save()
+                    else:
+                        valid_entities = ','.join([x.name for x in Entity.objects.all()])
+                        return JsonResponse(dict(set_attributes=dict(request_status='error',
+                                                                     request_error='user_type not valid. Must be a valid Entity (%s)' % valid_entities)))
+
+        elif field.field_type == 'text' or field.field_type == 'one_time_notification':
+            for m in field.message_set.all():
+                rta = replace_text_attributes(m.text, instance, user)
+                if rta['status'] == 'error':
+                    return JsonResponse(
+                        dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+                new_text = rta['response']
                 if session.field_set.filter(field_type='buttons', position=field.position + 1).exists():
                     buttons = []
-                    for b in session.field_set. \
+                    for b in session.field_set.\
                             filter(field_type='buttons', position=field.position + 1).first().button_set.all():
                         if b.button_type == 'show_block':
                             rta = replace_text_attributes(b.block_names, instance, user)
@@ -1930,178 +2030,220 @@ class GetSessionFieldView(View):
                             buttons.append(dict(type=b.button_type,
                                                 url=url,
                                                 title=title))
-                    rta = replace_text_attributes(m.text, instance, user)
-                    if rta['status'] == 'error':
-                        return JsonResponse(
-                            dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                    messages.append(
-                        dict(attachment=
-                            dict(type="template",
-                                payload=dict(template_type="media",
-                                            elements=[dict(media_type="image",
-                                                            url=rta['response'],
-                                                            buttons=buttons)]))))
+                    messages.append(dict(attachment=dict(type="template",
+                                                         payload=dict(template_type="button",
+                                                                      text=new_text,
+                                                                      buttons=buttons))))
                     response_field = response_field + 1
                 else:
-                    rta = replace_text_attributes(m.text, instance, user)
-                    if rta['status'] == 'error':
-                        return JsonResponse(
-                            dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                    messages.append(
-                        dict(attachment=
-                            dict(type='image',
-                                payload=dict(url=rta['response']))))
+                    messages.append(dict(text=new_text))
+                
+                if field.field_type == 'one_time_notification':
+                    messages[-1]['OTN'] = True
 
-            elif field.field_type == 'quick_replies':
-                message = dict(text='Responde: ', quick_replies=[])
-                save_attribute = True
-                for r in field.reply_set.all():
-                    rta = replace_text_attributes(r.label, instance, user)
-                    if rta['status'] == 'error':
-                        return JsonResponse(
-                            dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                    rep = dict(title=rta['response'])
-                    message['quick_replies'].append(rep)
-                    if r.attribute or r.redirect_block or r.session:
-                        save_attribute = True
-                        if r.value:
-                            rep['set_attributes'] = {'last_reply': r.value, 'reply_id': r.id}
-                        else:
-                            rep['set_attributes'] = {'last_reply': '', 'reply_id': r.id}
-                message['quick_reply_options'] = dict(process_text_by_ai=False, text_attribute_name='last_reply')
-                attributes['save_text_reply'] = save_attribute
-                messages.append(message)
-                attributes['field_id'] = field.id
-
-            elif field.field_type == 'save_values_block':
-                response['redirect_to_blocks'] = [field.redirectblock.block]
-
-            elif field.field_type == 'live_chat':
-                user_channel = user.userchannel_set.filter(bot_id=user.bot_id)
-                if user_channel.exists():
-                    user_channel = user_channel.last()
-                    user_channel.live_chat = True
-                    historic = LiveChat(user_channel=user_channel, live_chat=True)
-                    historic.save()
-                    user_channel.save()
-
-            elif field.field_type == 'user_input':
-                attributes['save_user_input'] = True
-                # The first decimal of 'position' represents the number of times the user failed the validation
-                # For example: position = 1.2 means that the field position is 1, but the user has failed the validation
-                #               2 times, so the following text is the third text
-                # Here I just extract the decimal part to get the correct text
-                user_input_try = round((float(position)*10 - int(position)*10))
-                user_input_text = field.userinput_set.all().order_by('id')[user_input_try].text
-                rta = replace_text_attributes(user_input_text, instance, user)
+        elif field.field_type == 'image':
+            m = field.message_set.first()
+            if session.field_set.filter(field_type='buttons', position=field.position + 1).exists():
+                buttons = []
+                for b in session.field_set. \
+                        filter(field_type='buttons', position=field.position + 1).first().button_set.all():
+                    if b.button_type == 'show_block':
+                        rta = replace_text_attributes(b.block_names, instance, user)
+                        if rta['status'] == 'error':
+                            return JsonResponse(
+                                dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+                        block_names = rta['response']
+                        rta = replace_text_attributes(b.title, instance, user)
+                        if rta['status'] == 'error':
+                            return JsonResponse(
+                                dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+                        title = rta['response']
+                        buttons.append(dict(type=b.button_type,
+                                            block_names=[block_names],
+                                            title=title))
+                    else:
+                        rta = replace_text_attributes(b.url, instance, user)
+                        if rta['status'] == 'error':
+                            return JsonResponse(
+                                dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+                        url = rta['response']
+                        rta = replace_text_attributes(b.title, instance, user)
+                        if rta['status'] == 'error':
+                            return JsonResponse(
+                                dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+                        title = rta['response']
+                        buttons.append(dict(type=b.button_type,
+                                            url=url,
+                                            title=title))
+                rta = replace_text_attributes(m.text, instance, user)
                 if rta['status'] == 'error':
                     return JsonResponse(
                         dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
-                attributes['user_input_text'] = rta['response']
-                attributes['field_id'] = field.id
+                messages.append(
+                    dict(attachment=
+                         dict(type="template",
+                              payload=dict(template_type="media",
+                                           elements=[dict(media_type="image",
+                                                          url=rta['response'],
+                                                          buttons=buttons)]))))
+                response_field = response_field + 1
+            else:
+                rta = replace_text_attributes(m.text, instance, user)
+                if rta['status'] == 'error':
+                    return JsonResponse(
+                        dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+                messages.append(
+                    dict(attachment=
+                         dict(type='image',
+                              payload=dict(url=rta['response']))))
 
-            elif field.field_type == 'condition':
-                satisfies_conditions = True
-                # Revisar que todas las condiciones se cumplan
-                for condition in field.condition_set.all():
+        elif field.field_type == 'quick_replies':
+            message = dict(text='Responde: ', quick_replies=[])
+            save_attribute = True
+            for r in field.reply_set.all():
+                rta = replace_text_attributes(r.label, instance, user)
+                if rta['status'] == 'error':
+                    return JsonResponse(
+                        dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+                rep = dict(title=rta['response'])
+                message['quick_replies'].append(rep)
+                if r.attribute or r.redirect_block or r.session:
+                    save_attribute = True
+                    if r.value:
+                        rep['set_attributes'] = {'last_reply': r.value, 'reply_id': r.id}
+                    else:
+                        rep['set_attributes'] = {'last_reply': '', 'reply_id': r.id}
+            message['quick_reply_options'] = dict(process_text_by_ai=False, text_attribute_name='last_reply')
+            attributes['save_text_reply'] = save_attribute
+            messages.append(message)
+            attributes['field_id'] = field.id
 
-                    # Revisar que el atributo existe, por defecto asumo que no
-                    is_attribute_set = False
+        elif field.field_type == 'save_values_block':
+            response['redirect_to_blocks'] = [field.redirectblock.block]
+
+        elif field.field_type == 'live_chat':
+            user_channel = user.userchannel_set.filter(bot_id=user.bot_id)
+            if user_channel.exists():
+                user_channel = user_channel.last()
+                user_channel.live_chat = True
+                historic = LiveChat(user_channel=user_channel, live_chat=True)
+                historic.save()
+                user_channel.save()
+
+        elif field.field_type == 'user_input':
+            attributes['save_user_input'] = True
+            # The first decimal of 'position' represents the number of times the user failed the validation
+            # For example: position = 1.2 means that the field position is 1, but the user has failed the validation
+            #               2 times, so the following text is the third text
+            # Here I just extract the decimal part to get the correct text
+            user_input_try = round((float(position)*10 - int(position)*10))
+            user_input_text = field.userinput_set.all().order_by('id')[user_input_try].text
+            rta = replace_text_attributes(user_input_text, instance, user)
+            if rta['status'] == 'error':
+                return JsonResponse(
+                    dict(set_attributes=dict(request_status='error', request_error=rta['response'])))
+            attributes['user_input_text'] = rta['response']
+            attributes['field_id'] = field.id
+
+        elif field.field_type == 'condition':
+            satisfies_conditions = True
+            # Revisar que todas las condiciones se cumplan
+            for condition in field.condition_set.all():
+
+                # Revisar que el atributo existe, por defecto asumo que no
+                is_attribute_set = False
+                
+                # Revisar si el attributo es una secuencia
+                attribute_sequence = Attribute.objects.filter(name='sequence')
+                if attribute_sequence.exists() and condition.attribute == attribute_sequence.first():
+                    #fetch names of suscribed sequences
+                    ht_url = "{0}/api/0.1/uhts/getSequences/?user_id={1}".format(os.getenv('HOTTRIGGERS_DOMAIN'), user.id)
+                    ht_response = requests.get(ht_url).json()
+                    suscribed_to = ht_response['results'] if 'results' in ht_response else list()
                     
-                    # Revisar si el attributo es una secuencia
-                    attribute_sequence = Attribute.objects.filter(name='sequence')
-                    if attribute_sequence.exists() and condition.attribute == attribute_sequence.first():
-                        #fetch names of suscribed sequences
-                        ht_url = "{0}/api/0.1/uhts/getSequences/?user_id={1}".format(os.getenv('HOTTRIGGERS_DOMAIN'), user.id)
-                        ht_response = requests.get(ht_url).json()
-                        suscribed_to = ht_response['results'] if 'results' in ht_response else list()
-                        
-                        is_attribute_set = condition.value.strip() in suscribed_to
-                        
-                    # Reviso si el atributo es de instancia/embarazo
-                    elif condition.attribute.entity_set.filter(id__in=[1, 2]).exists():
-                        attribute = AttributeValue.objects.filter(attribute=condition.attribute,
-                                                                instance=instance).order_by('id')
-                        if attribute.exists():
-                            is_attribute_set = True
-                            attribute = attribute.last()
-                        elif condition.condition != 'is_not_set':
-                            satisfies_conditions = False
-                    # Reviso si el atributo es de encargado/profesional
-                    elif condition.attribute.entity_set.filter(id__in=[4, 5]).exists():
-                        attribute = UserData.objects.filter(attribute=condition.attribute,
-                                                            user=user).order_by('id')
-                        if attribute.exists():
-                            is_attribute_set = True
-                            attribute = attribute.last()
-                            attribute.value = attribute.data_value
-                        elif condition.condition != 'is_not_set':
-                            satisfies_conditions = False
-                    # Si no existe el atributo, no satisface las condiciones (a menos que la condicion sea is not set)
+                    is_attribute_set = condition.value.strip() in suscribed_to
+                    
+                # Reviso si el atributo es de instancia/embarazo
+                elif condition.attribute.entity_set.filter(id__in=[1, 2]).exists():
+                    attribute = AttributeValue.objects.filter(attribute=condition.attribute,
+                                                              instance=instance).order_by('id')
+                    if attribute.exists():
+                        is_attribute_set = True
+                        attribute = attribute.last()
                     elif condition.condition != 'is_not_set':
                         satisfies_conditions = False
-                    # Revisar la condicion
-                    if condition.condition == 'is_set':
-                        satisfies_conditions = satisfies_conditions and is_attribute_set
-                    elif condition.condition == 'is_not_set':
-                        satisfies_conditions = satisfies_conditions and not is_attribute_set
-                    elif condition.condition == 'equal':
-                        satisfies_conditions = satisfies_conditions and (attribute.value == condition.value)
-                    elif condition.condition == 'not_equal':
-                        satisfies_conditions = satisfies_conditions and (attribute.value != condition.value)
-                    elif condition.condition == 'in':
-                        satisfies_conditions = satisfies_conditions and (attribute.value in condition.value.split(","))
-                    elif condition.condition == 'lt':
-                        try:
-                            satisfies_conditions = satisfies_conditions \
-                                                and (float(attribute.value) < float(condition.value))
-                        except:
-                            satisfies_conditions = False
-                    elif condition.condition == 'gt':
-                        try:
-                            satisfies_conditions = satisfies_conditions \
-                                                and (float(attribute.value) > float(condition.value))
-                        except:
-                            satisfies_conditions = False
-                    elif condition.condition == 'lte':
-                        try:
-                            satisfies_conditions = satisfies_conditions \
-                                                and (float(attribute.value) <= float(condition.value))
-                        except:
-                            satisfies_conditions = False
-                    elif condition.condition == 'gte':
-                        try:
-                            satisfies_conditions = satisfies_conditions \
-                                                and (float(attribute.value) >= float(condition.value))
-                        except:
-                            satisfies_conditions = False
-                if not satisfies_conditions:
-                    response_field = response_field + 1
+                # Reviso si el atributo es de encargado/profesional
+                elif condition.attribute.entity_set.filter(id__in=[4, 5]).exists():
+                    attribute = UserData.objects.filter(attribute=condition.attribute,
+                                                        user=user).order_by('id')
+                    if attribute.exists():
+                        is_attribute_set = True
+                        attribute = attribute.last()
+                        attribute.value = attribute.data_value
+                    elif condition.condition != 'is_not_set':
+                        satisfies_conditions = False
+                # Si no existe el atributo, no satisface las condiciones (a menos que la condicion sea is not set)
+                elif condition.condition != 'is_not_set':
+                    satisfies_conditions = False
+                # Revisar la condicion
+                if condition.condition == 'is_set':
+                    satisfies_conditions = satisfies_conditions and is_attribute_set
+                elif condition.condition == 'is_not_set':
+                    satisfies_conditions = satisfies_conditions and not is_attribute_set
+                elif condition.condition == 'equal':
+                    satisfies_conditions = satisfies_conditions and (attribute.value == condition.value)
+                elif condition.condition == 'not_equal':
+                    satisfies_conditions = satisfies_conditions and (attribute.value != condition.value)
+                elif condition.condition == 'in':
+                    satisfies_conditions = satisfies_conditions and (attribute.value in condition.value.split(","))
+                elif condition.condition == 'lt':
+                    try:
+                        satisfies_conditions = satisfies_conditions \
+                                               and (float(attribute.value) < float(condition.value))
+                    except:
+                        satisfies_conditions = False
+                elif condition.condition == 'gt':
+                    try:
+                        satisfies_conditions = satisfies_conditions \
+                                               and (float(attribute.value) > float(condition.value))
+                    except:
+                        satisfies_conditions = False
+                elif condition.condition == 'lte':
+                    try:
+                        satisfies_conditions = satisfies_conditions \
+                                               and (float(attribute.value) <= float(condition.value))
+                    except:
+                        satisfies_conditions = False
+                elif condition.condition == 'gte':
+                    try:
+                        satisfies_conditions = satisfies_conditions \
+                                               and (float(attribute.value) >= float(condition.value))
+                    except:
+                        satisfies_conditions = False
+            if not satisfies_conditions:
+                response_field = response_field + 1
 
-            elif field.field_type == 'activate_ai' or field.field_type == 'deactivate_ai':
-                attributes['AI_active'] = '' if field.field_type == 'deactivate_ai' else 1
+        elif field.field_type == 'activate_ai' or field.field_type == 'deactivate_ai':
+            attributes['AI_active'] = '' if field.field_type == 'deactivate_ai' else 1
 
-            if fields.last().position < response_field:
-                finish = 'true'
-                response_field = 0
-                # Guardar interaccion
-                SessionInteraction.objects.create(user_id=user.id,
-                                                instance_id=instance_id,
-                                                type='session_finish',
-                                                field=field,
-                                                session=session)
-            attributes['session_finish'] = finish
-            attributes['position'] = response_field
-            response['set_attributes'] = attributes
-            response['messages'] = messages
-            save_attributes = dict()
-            for key_name in ['session', 'position', 'session_finish', 'save_user_input', 'save_text_reply', 'field_id', 'previous_field_id', 'AI_active']:
-                if key_name in attributes:
-                    save_attributes[key_name] = attributes[key_name]
-            save_json_attributes(dict(set_attributes=save_attributes), instance, user)
-
-        except Exception as e:
-            return JsonResponse(dict(set_attributes=dict(request_status='error', request_error=str(e))))
+        if fields.last().position < response_field:
+            finish = 'true'
+            response_field = 0
+            # Guardar interaccion
+            SessionInteraction.objects.create(user_id=user.id,
+                                              instance_id=instance_id,
+                                              type='session_finish',
+                                              field=field,
+                                              session=session)
+        attributes['session_finish'] = finish
+        attributes['position'] = response_field
+        response['set_attributes'] = attributes
+        response['messages'] = messages
+        save_attributes = dict()
+        for key_name in ['session', 'position', 'session_finish', 'save_user_input', 'save_text_reply', 'field_id', 'previous_field_id', 'AI_active']:
+            if key_name in attributes:
+                save_attributes[key_name] = attributes[key_name]
+        save_json_attributes(dict(set_attributes=save_attributes), instance, user)
         return JsonResponse(response)
 
 

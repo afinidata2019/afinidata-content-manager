@@ -253,4 +253,12 @@ DOMAIN_URL = 'http://localhost:8000'
 ALLOWED_HOSTS = ['*']
 DOMAIN_URL = os.getenv('CONTENT_MANAGER_DOMAIN')
 
-CORS_ORIGIN_WHITELIST = os.getenv('WHITELIST').split(',')
+CORS_ORIGIN_WHITELIST = [
+    os.getenv('APP_DOMAIN'),
+    os.getenv('APP_LOCAL_DOMAIN'),
+    os.getenv('CORE_DOMAIN'),
+    os.getenv('HOTTRIGGERS_DOMAIN'),
+    os.getenv('PROGRAM_DOMAIN'),
+    os.getenv('TWILIO_DOMAIN'),
+    os.getenv('WEBHOOK_DOMAIN')
+]
