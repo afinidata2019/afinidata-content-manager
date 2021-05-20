@@ -11,7 +11,7 @@ from messenger_users.models import User as MessengerUser, LiveChat, UserChannel
 from messenger_users.models import User, UserData
 from milestones.models import Milestone
 from programs.models import Program, Attributes as ProgramAttributes
-from user_sessions.models import Session, Interaction as SessionInteraction, Reply, Field, Lang
+from user_sessions.models import Session, Interaction as SessionInteraction, Reply, Field, Lang, BotSessions
 from django.utils import timezone
 from django.utils.http import is_safe_url
 from django.utils.decorators import method_decorator
@@ -65,7 +65,12 @@ class CreateMessengerUserView(CreateView):
                         user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id, attribute_id='207')
                         user.save()
                     # Enviar al usuario a una session en especifico
-                    save_json_attributes(dict(set_attributes=dict(session=945,
+                    sessions = BotSessions.objects.filter(bot_id=user.bot_id, session_type='exchange')
+                    if sessions.exists():
+                        session = sessions.last().session.id
+                    else:
+                        session = 667 # Default general
+                    save_json_attributes(dict(set_attributes=dict(session=session,
                                                                   position=0,
                                                                   reply_id=0,
                                                                   field_id=0,
@@ -143,8 +148,13 @@ class CreateMessengerUserView(CreateView):
                             user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id,
                                                      attribute_id='207')
                             user.save()
-                            # Enviar al usuario a una session en especifico
-                        save_json_attributes(dict(set_attributes=dict(session=945,
+                        # Enviar al usuario a una session en especifico
+                        sessions = BotSessions.objects.filter(bot_id=user.bot_id, session_type='exchange')
+                        if sessions.exists():
+                            session = sessions.last().session.id
+                        else:
+                            session = 667 # Default general
+                        save_json_attributes(dict(set_attributes=dict(session=session,
                                                                       position=0,
                                                                       reply_id=0,
                                                                       field_id=0,
@@ -290,8 +300,13 @@ class ChangeBotChannelUserView(View):
                 user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id,
                                          attribute_id='207')
                 user.save()
-                # Enviar al usuario a una session en especifico
-            save_json_attributes(dict(set_attributes=dict(session=898,
+            # Enviar al usuario a una session en especifico
+            sessions = BotSessions.objects.filter(bot_id=user.bot_id, session_type='exchange')
+            if sessions.exists():
+                session = sessions.last().session.id
+            else:
+                session = 667 # Default general
+            save_json_attributes(dict(set_attributes=dict(session=session,
                                                           position=0,
                                                           reply_id=0,
                                                           field_id=0,

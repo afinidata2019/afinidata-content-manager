@@ -53,9 +53,10 @@ class Channels(models.Model):
 
 
 class BotSessions(models.Model):
+    BOT_SESSION_TYPES = (('welcome', 'Welcome'), ('default', 'Default'), ('exchange', 'Exchange'))
     session = models.ForeignKey(Session, on_delete=models.CASCADE)
     bot_id = models.IntegerField(default=0)
-    session_type = models.CharField(max_length=50, choices=(('welcome', 'Welcome'), ('default', 'Default')))
+    session_type = models.CharField(max_length=20, choices=BOT_SESSION_TYPES)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
