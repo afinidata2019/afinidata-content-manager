@@ -51,11 +51,21 @@ class CreateMessengerUserView(CreateView):
                 user = MessengerUser.objects.filter(id=user_id)
                 if user.exists():
                     user = user.last()
-                    for user_channel in UserChannel.objects.filter(user_channel_id=form.data['channel_id']):
+                    for user_channel in UserChannel.objects.filter(user_channel_id=form.data['channel_id']).order_by('created_at'):
                         user_channel.user = user
                         user_channel.save()
+                        # Si el usuario ya tiene el bot_id correcto, seguir con el flujo
+                        if user.bot_id == user_channel.bot_id:
+                            return JsonResponse(dict(set_attributes=dict(user_id=user.pk, request_status='done',
+                                                                         username=user.username,
+                                                                         service_name='Create User',
+                                                                         user_reg='unregistered')))
+                        # Hacer el cambio del bot al usuario
+                        user.bot_id = user_channel.bot_id
+                        user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id, attribute_id='207')
+                        user.save()
                     # Enviar al usuario a una session en especifico
-                    save_json_attributes(dict(set_attributes=dict(session=898,
+                    save_json_attributes(dict(set_attributes=dict(session=945,
                                                                   position=0,
                                                                   reply_id=0,
                                                                   field_id=0,
@@ -118,11 +128,23 @@ class CreateMessengerUserView(CreateView):
                     user = MessengerUser.objects.filter(id=user_id)
                     if user.exists():
                         user = user.last()
-                        for user_channel in UserChannel.objects.filter(user_channel_id=form.data['channel_id']):
+                        for user_channel in UserChannel.objects.filter(user_channel_id=form.data['channel_id']).order_by('created_at'):
                             user_channel.user = user
                             user_channel.save()
+                            # Si el usuario ya tiene el bot_id correcto, seguir con el flujo
+                            if user.bot_id == user_channel.bot_id:
+                                return JsonResponse(dict(set_attributes=dict(user_id=user.pk,
+                                                                             username=user.username,
+                                                                             request_status='done',
+                                                                             request_error='User exists',
+                                                                             service_name='Create User')))
+                            # Hacer el cambio del bot al usuario
+                            user.bot_id = user_channel.bot_id
+                            user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id,
+                                                     attribute_id='207')
+                            user.save()
                             # Enviar al usuario a una session en especifico
-                        save_json_attributes(dict(set_attributes=dict(session=898,
+                        save_json_attributes(dict(set_attributes=dict(session=945,
                                                                       position=0,
                                                                       reply_id=0,
                                                                       field_id=0,
@@ -263,6 +285,11 @@ class ChangeBotChannelUserView(View):
             for user_channel in UserChannel.objects.filter(user_id=temp_user_id):
                 user_channel.user = user
                 user_channel.save()
+                # Hacer el cambio del bot al usuario
+                user.bot_id = user_channel.bot_id
+                user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id,
+                                         attribute_id='207')
+                user.save()
                 # Enviar al usuario a una session en especifico
             save_json_attributes(dict(set_attributes=dict(session=898,
                                                           position=0,
