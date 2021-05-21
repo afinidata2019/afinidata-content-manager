@@ -171,6 +171,28 @@ class UserChannel(models.Model):
     def __str__(self):
         return self.user_channel_id
 
+    @property
+    def last_message(self):
+        last_message = 'Sin mensajes del webhook'
+        try:
+            response = requests.get('{0}/bots/{1}/channel/{2}/get_last_message/?user_channel_id={3}'.format
+                                    (os.getenv('WEBHOOK_DOMAIN_URL'), self.bot_id, self.bot_channel_id, self.user_channel_id))
+            if response.status_code == 200:
+                data = response.json()['data']
+                if len(data) > 0:
+                    last_message = data[0]['content']
+                else:
+                    last_message = ''
+        except Exception as err:
+            pass
+        
+        return last_message
+    
+    @property
+    def window(self):
+        window = self.get_last_user_message_date(check_window=True)
+        return ('Yes' if window else 'No')
+
     def get_last_user_message_date(self, check_window=False):
         result = self.interaction_set.all().filter(category=Interaction.LAST_USER_MESSAGE)
         
@@ -182,6 +204,7 @@ class UserChannel(models.Model):
                 return result
 
         return False
+
 
 class Interaction(models.Model):
     LAST_USER_MESSAGE = 1 # date we saved of last time the user wrote to us
