@@ -423,20 +423,20 @@ class PeopleFilterSearch():
 
         return filters
 
-    def apply_filter(self, field, value, condition, numeric=False):
+    def apply_filter(self, field, value, condition, exact=False):
         # apply condition to search
         if condition == 'is':
-            if numeric:
+            if exact:
                 query_search = Q(**{f"{field}": value})
             else:
                 query_search = Q(**{f"{field}__icontains": value})
         elif condition == 'is_not':
-            if numeric:
+            if exact:
                 query_search = ~Q(**{f"{field}": value})
             else:
                 query_search = ~Q(**{f"{field}__icontains": value})
         elif condition == 'startswith':
-            if numeric:
+            if exact:
                 query_search = Q(**{f"{field}": value})
             else:
                 query_search = Q(**{f"{field}__startswith": value})
@@ -452,4 +452,20 @@ class PeopleFilterSearch():
         last_attributes = last_attributes.values(type_id, 'attribute_id').annotate(max_id=Max('id'))
         
         return list(last_attributes.values_list('max_id', flat=True).distinct())
+
+    def by_sequence(self, model, model_field, next_connector, value, condition, queryset):
+        try:
+            active = 0 if condition in ['was', 'was_not'] else 1
+            url = '{0}/uhts/getSuscribedUsers/?sequence_id={1}&active={2}'.format(os.getenv('HOTTRIGGERS_API'), value, active)
+            response = requests.get(url).json()
+            suscribed_users = response['results'] if 'results' in response else list()
+            
+            if active:
+                qs = model.objects.filter(Q(**{f"{model_field}__in": suscribed_users}))
+            else:
+                qs = model.objects.exclude(Q(**{f"{model_field}__in": suscribed_users}))
+
+            return self.apply_connector(next_connector, queryset, qs)
+        except Exception as err:
+            return False
 
