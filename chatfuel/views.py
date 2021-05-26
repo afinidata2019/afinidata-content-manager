@@ -1,6 +1,7 @@
 from articles.models import Article, Interaction as ArticleInteraction, ArticleFeedback, Intent as ArticleIntent, Missing as MissingArticles
 from attributes.models import Attribute
 from bots.models import Interaction as BotInteraction, UserInteraction
+from chatfuel import forms
 from entities.models import Entity
 from groups import forms as group_forms
 from groups.models import Code, AssignationMessengerUser, Group, MilestoneRisk
@@ -12,6 +13,9 @@ from messenger_users.models import User, UserData
 from milestones.models import Milestone
 from programs.models import Program, Attributes as ProgramAttributes
 from user_sessions.models import Session, Interaction as SessionInteraction, Reply, Field, Lang, BotSessions
+
+from dateutil import relativedelta, parser
+from datetime import datetime, timedelta
 from django.utils import timezone
 from django.utils.http import is_safe_url
 from django.utils.decorators import method_decorator
@@ -21,9 +25,6 @@ from django.views.generic import View, CreateView, TemplateView, UpdateView
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, Http404
 from requests.auth import HTTPBasicAuth
-from dateutil import relativedelta, parser
-from datetime import datetime, timedelta
-from chatfuel import forms
 import requests
 import pytz
 import json
@@ -1979,6 +1980,13 @@ class GetSessionFieldView(View):
                 historic = LiveChat(user_channel=user_channel, live_chat=True)
                 historic.save()
                 user_channel.save()
+            
+            # send email to the support
+            try:
+                support = dict(user=user.id, name='{0} {1}'.format(user.first_name, user.last_name), bot_id=user.bot_id)
+                requests.post('{0}/api/support/'.format(os.getenv('AUTH_DOMAIN')), json=support) 
+            except:
+                pass
 
         elif field.field_type == 'user_input':
             attributes['save_user_input'] = True
