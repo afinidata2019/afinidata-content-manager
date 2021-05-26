@@ -1623,18 +1623,14 @@ class GetSessionFieldView(View):
                 return JsonResponse(dict(set_attributes=dict(session_finish=session_finish)))
         
         # user data check for instance
+        instance = None
+        instance_id = None
         if form.cleaned_data['instance']:
             instance = form.cleaned_data['instance']
-        else:
-            if user.userdata_set.filter(attribute__name='instance').exists():
-                instance = Instance.objects.filter(id=user.userdata_set.filter(attribute__name='instance').last().data_value)
-                if instance.exists():
-                    instance = instance.last()
-                else:
-                    instance = None
-            else:
-                instance = None
-        instance_id = None
+        elif user.userdata_set.filter(attribute__name='instance').exists():
+            instance = Instance.objects.get(id=user.userdata_set.
+                                                filter(attribute__name='instance').last().data_value)
+
         if instance:
             instance_id = instance.id
         
@@ -1648,13 +1644,12 @@ class GetSessionFieldView(View):
                 return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                              request_error='User has no session')))
         # user attribute positon
+        position = 0
         if form.cleaned_data['position']:
             position = form.cleaned_data['position']
-        else:
-            if user.userdata_set.filter(attribute__name='position').exists():
-                position = user.userdata_set.filter(attribute__name='position').last().data_value
-            else:
-                position = 0
+        elif user.userdata_set.filter(attribute__name='position').exists():
+            position = user.userdata_set.filter(attribute__name='position').last().data_value
+                
         field = session.field_set.filter(position=int(position))
         response = dict()
         attributes = dict()
