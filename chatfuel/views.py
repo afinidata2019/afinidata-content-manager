@@ -1452,8 +1452,11 @@ def get_session(cleaned_data, data, position=0):
         instance = cleaned_data['instance']
     else:
         if user.userdata_set.filter(attribute__name='instance').exists():
-            instance = Instance.objects.get(id=user.userdata_set.
-                                            filter(attribute__name='instance').last().data_value)
+            instance = Instance.objects.filter(id=user.userdata_set.filter(attribute__name='instance').last().data_value)
+            if instance.exists():
+                instance = instance.last()
+            else:
+                instance = None
         else:
             instance = None
     if instance:
