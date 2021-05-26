@@ -456,7 +456,10 @@ class PeopleFilterSearch():
     def by_sequence(self, model, model_field, next_connector, value, condition, queryset):
         try:
             active = 0 if condition in ['was', 'was_not'] else 1
-            url = '{0}/uhts/getSuscribedUsers/?sequence_id={1}&active={2}'.format(os.getenv('HOTTRIGGERS_API'), value, active)
+            url = '{0}/uhts/getSuscribedUsers/?sequence_id={1}'.format(os.getenv('HOTTRIGGERS_API'), value)
+            if condition != 'was_not':
+                url += '&active={0}'.format(active)
+           
             response = requests.get(url).json()
             suscribed_users = response['results'] if 'results' in response else list()
             
