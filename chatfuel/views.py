@@ -1627,8 +1627,11 @@ class GetSessionFieldView(View):
             instance = form.cleaned_data['instance']
         else:
             if user.userdata_set.filter(attribute__name='instance').exists():
-                instance = Instance.objects.get(id=user.userdata_set.
-                                                filter(attribute__name='instance').last().data_value)
+                instance = Instance.objects.filter(id=user.userdata_set.filter(attribute__name='instance').last().data_value)
+                if instance.exists():
+                    instance = instance.last()
+                else:
+                    instance = None
             else:
                 instance = None
         instance_id = None
