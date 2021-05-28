@@ -14,7 +14,6 @@ class UserSerializer(serializers.ModelSerializer):
     bot_channel_id = serializers.ReadOnlyField()
     user_channel_id = serializers.ReadOnlyField()
     last_seen = serializers.ReadOnlyField()
-    last_user_message = serializers.ReadOnlyField()
     last_channel_interaction = serializers.ReadOnlyField()
     window = serializers.ReadOnlyField()
 
@@ -28,7 +27,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'username', 'last_seen', 'last_user_message', 'backup_key', 'license', 'language',
+        fields = ['id', 'first_name', 'last_name', 'username', 'last_seen', 'backup_key', 'license', 'language',
                   'last_channel_interaction', 'window', 'channel_id', 'user_channel_id', 'bot_channel_id', 'bot_id', 'profile_pic',
                   'last_message', 'last_bot_id', 'created_at', 'updated_at', 'entity','instances']
 
@@ -49,6 +48,25 @@ class UserConversationSerializer(serializers.ModelSerializer):
         fields = ['id', 'first_name', 'last_name', 'username', 'last_seen', 'last_user_message',
                   'last_channel_interaction', 'window', 'user_channel_id', 'bot_channel_id', 'bot_id', 'profile_pic',
                   'last_message', 'last_bot_id']
+
+
+class UserShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name')
+
+
+class InstanceDetailSerializer(serializers.ModelSerializer):
+
+    user = serializers.SerializerMethodField()
+    def get_user(self, obj):
+        qs = User.objects.filter(instanceassociationuser__instance_id=obj.pk)
+        serializer = UserShortSerializer(qs, many=True)
+        return serializer.data
+
+    class Meta:
+        model = Instance
+        fields = '__all__'
 
 
 class UserDataSerializer(serializers.ModelSerializer):

@@ -105,11 +105,12 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(methods=['POST'], detail=False)
     def advance_search(self, request):
+        queryset = models.User.objects.all()
         filtros = request.data['filtros']
         next_connector = None
         date_filter = Q()
         filter_search = Q()
-        queryset = models.User.objects.all()
+        
         people_search = PeopleFilterSearch()
 
         for idx, f in enumerate(filtros):
@@ -121,7 +122,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
             if search_by == 'attribute':
                 attribute = Attribute.objects.get(pk=data_key)
-                is_numeric = attribute.type == 'numeric'
+                is_exact = attribute.type in ['numeric', 'category']
                 
                 # check if attribute belongs to user or instance, Priority to USER
                 if attribute.entity_set.filter(id__in=[4, 5]).exists():
@@ -156,26 +157,26 @@ class UserViewSet(viewsets.ModelViewSet):
                         
                         s = Q(instanceassociationuser__instance__attributevalue__id__in=last_attributes) & \
                             people_search.apply_filter('instanceassociationuser__instance__attributevalue__value',
-                                                        value, condition, numeric=is_numeric)
+                                                        value, condition, exact=is_exact)
                     else:
                         # filter by attribute user
                         last_attributes = people_search.get_last_attributes(data_key, model=models.UserData, type_id='user_id')
 
                         s = Q(userdata__id__in=last_attributes) & \
-                            people_search.apply_filter('userdata__data_value', value, condition, numeric=is_numeric)
+                            people_search.apply_filter('userdata__data_value', value, condition, exact=is_exact)
                       
                     qs = models.User.objects.filter(s)
                     queryset = people_search.apply_connector(next_connector, queryset, qs)
 
             elif search_by == 'bot':
                 condition = condition if condition == 'is' else 'is_not'
-                s = people_search.apply_filter('bot_id', value, condition, numeric=True)
+                s = people_search.apply_filter('bot_id', value, condition, exact=True)
                 qs = models.User.objects.filter(s)
                 queryset = people_search.apply_connector(next_connector, queryset, qs)
             
             elif search_by == 'channel':
                 # filter by channel
-                s = people_search.apply_filter('userchannel__channel_id', value, condition, numeric=True)
+                s = people_search.apply_filter('userchannel__channel_id', value, condition, exact=True)
                 qs = models.User.objects.filter(s)
                 queryset = people_search.apply_connector(next_connector, queryset, qs)
             
@@ -207,37 +208,27 @@ class UserViewSet(viewsets.ModelViewSet):
 
             elif search_by == 'group':
                 # filter by group and by parent group
-                s = people_search.apply_filter('assignationmessengeruser__group_id', value, condition, numeric=True)
+                s = people_search.apply_filter('assignationmessengeruser__group_id', value, condition, exact=True)
                 s2 = people_search.apply_filter('assignationmessengeruser__group__parent_id',
-                                                 value, condition, numeric=True)
+                                                 value, condition, exact=True)
                 qs = models.User.objects.filter(s | s2)
                 queryset = people_search.apply_connector(next_connector, queryset, qs)
 
             elif search_by == 'program':
                 # filter by program
                 s = people_search.apply_filter('assignationmessengeruser__group__programassignation__program_id',
-                                                value, condition, numeric=True)
+                                                value, condition, exact=True)
                 qs = models.User.objects.filter(s)
                 queryset = people_search.apply_connector(next_connector, queryset, qs)
 
             elif search_by == 'sequence':
-                try:
-                    url = "{0}/api/0.1/uhts/getSuscribedUsers/?sequence_id={1}".format(os.getenv('HOT_TRIGGERS_DOMAIN'), value)
-                    response = requests.get(url).json()
-                    suscribed_users = response['results'] if 'results' in response else list()
-                    
-                    if condition == 'is':
-                        qs = models.User.objects.filter(id__in=suscribed_users)
-                    else:
-                        qs = models.User.objects.exclude(id__in=suscribed_users)
-                    
-                    queryset = people_search.apply_connector(next_connector, queryset, qs)
-                except Exception as err:
+                queryset = people_search.by_sequence(models.User, 'id', next_connector, value, condition, queryset)
+                if isinstance(queryset, bool):
                     return Response({'message':'subscribed API error'},status=HTTP_500_INTERNAL_SERVER_ERROR)
 
             next_connector = f['connector']
 
-        if request.query_params.get("search"):
+        if request.query_params.get('search'):
             # search by queryparams
             params = ['username','first_name','last_name','created_at']
 
