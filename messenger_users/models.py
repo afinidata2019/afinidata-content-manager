@@ -183,6 +183,7 @@ class UserChannel(models.Model):
 
         return False
 
+
 class Interaction(models.Model):
     LAST_USER_MESSAGE = 1 # date we saved of last time the user wrote to us
     LAST_CHANNEL_INTERACTION = 2 # value the channel has of last interaction

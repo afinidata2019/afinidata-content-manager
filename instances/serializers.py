@@ -1,10 +1,12 @@
 from .models import AttributeValue, Instance
-from messenger_users.models import UserData
+from messenger_users.models import User, UserData
 from rest_framework import serializers
 from attributes.serializers import AttributeSerializer
+# from messenger_users.serializers import UserShortSerializer
 
 
 class InstanceSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = Instance
         fields = '__all__'

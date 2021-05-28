@@ -53,11 +53,26 @@ class CreateMessengerUserView(CreateView):
                 user = MessengerUser.objects.filter(id=user_id)
                 if user.exists():
                     user = user.last()
-                    for user_channel in UserChannel.objects.filter(user_channel_id=form.data['channel_id']):
+                    for user_channel in UserChannel.objects.filter(user_channel_id=form.data['channel_id']).order_by('created_at'):
                         user_channel.user = user
                         user_channel.save()
+                        # Si el usuario ya tiene el bot_id correcto, seguir con el flujo
+                        if user.bot_id == user_channel.bot_id:
+                            return JsonResponse(dict(set_attributes=dict(user_id=user.pk, request_status='done',
+                                                                         username=user.username,
+                                                                         service_name='Create User',
+                                                                         user_reg='unregistered')))
+                        # Hacer el cambio del bot al usuario
+                        user.bot_id = user_channel.bot_id
+                        user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id, attribute_id='207')
+                        user.save()
                     # Enviar al usuario a una session en especifico
-                    save_json_attributes(dict(set_attributes=dict(session=898,
+                    sessions = BotSessions.objects.filter(bot_id=user.bot_id, session_type='exchange')
+                    if sessions.exists():
+                        session = sessions.last().session.id
+                    else:
+                        session = 667 # Default general
+                    save_json_attributes(dict(set_attributes=dict(session=session,
                                                                   position=0,
                                                                   reply_id=0,
                                                                   field_id=0,
@@ -120,11 +135,28 @@ class CreateMessengerUserView(CreateView):
                     user = MessengerUser.objects.filter(id=user_id)
                     if user.exists():
                         user = user.last()
-                        for user_channel in UserChannel.objects.filter(user_channel_id=form.data['channel_id']):
+                        for user_channel in UserChannel.objects.filter(user_channel_id=form.data['channel_id']).order_by('created_at'):
                             user_channel.user = user
                             user_channel.save()
-                            # Enviar al usuario a una session en especifico
-                        save_json_attributes(dict(set_attributes=dict(session=898,
+                            # Si el usuario ya tiene el bot_id correcto, seguir con el flujo
+                            if user.bot_id == user_channel.bot_id:
+                                return JsonResponse(dict(set_attributes=dict(user_id=user.pk,
+                                                                             username=user.username,
+                                                                             request_status='done',
+                                                                             request_error='User exists',
+                                                                             service_name='Create User')))
+                            # Hacer el cambio del bot al usuario
+                            user.bot_id = user_channel.bot_id
+                            user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id,
+                                                     attribute_id='207')
+                            user.save()
+                        # Enviar al usuario a una session en especifico
+                        sessions = BotSessions.objects.filter(bot_id=user.bot_id, session_type='exchange')
+                        if sessions.exists():
+                            session = sessions.last().session.id
+                        else:
+                            session = 667 # Default general
+                        save_json_attributes(dict(set_attributes=dict(session=session,
                                                                       position=0,
                                                                       reply_id=0,
                                                                       field_id=0,
@@ -269,8 +301,18 @@ class ChangeBotChannelUserView(View):
             for user_channel in UserChannel.objects.filter(user_id=temp_user_id):
                 user_channel.user = user
                 user_channel.save()
-                # Enviar al usuario a una session en especifico
-            save_json_attributes(dict(set_attributes=dict(session=898,
+                # Hacer el cambio del bot al usuario
+                user.bot_id = user_channel.bot_id
+                user.userdata_set.create(data_key='bot_id', data_value=user_channel.bot_id,
+                                         attribute_id='207')
+                user.save()
+            # Enviar al usuario a una session en especifico
+            sessions = BotSessions.objects.filter(bot_id=user.bot_id, session_type='exchange')
+            if sessions.exists():
+                session = sessions.last().session.id
+            else:
+                session = 667 # Default general
+            save_json_attributes(dict(set_attributes=dict(session=session,
                                                           position=0,
                                                           reply_id=0,
                                                           field_id=0,
@@ -1616,15 +1658,14 @@ class GetSessionFieldView(View):
                 return JsonResponse(dict(set_attributes=dict(session_finish=session_finish)))
         
         # user data check for instance
+        instance = None
+        instance_id = None
         if form.cleaned_data['instance']:
             instance = form.cleaned_data['instance']
-        else:
-            if user.userdata_set.filter(attribute__name='instance').exists():
-                instance = Instance.objects.get(id=user.userdata_set.
+        elif user.userdata_set.filter(attribute__name='instance').exists():
+            instance = Instance.objects.get(id=user.userdata_set.
                                                 filter(attribute__name='instance').last().data_value)
-            else:
-                instance = None
-        instance_id = None
+
         if instance:
             instance_id = instance.id
         
@@ -1638,20 +1679,15 @@ class GetSessionFieldView(View):
                 return JsonResponse(dict(set_attributes=dict(request_status='error',
                                                              request_error='User has no session')))
         # user attribute positon
+        position = 0
         if form.cleaned_data['position']:
             position = form.cleaned_data['position']
-        else:
-            if user.userdata_set.filter(attribute__name='position').exists():
-                position = user.userdata_set.filter(attribute__name='position').last().data_value
-            else:
-                if user.userdata_set.filter(attribute__name='position').exists():
-                    position = user.userdata_set.filter(attribute__name='position').last().data_value
-                else:
-                    position = 0
-            
-            field = session.field_set.filter(position=int(position))
-            response = dict()
-            attributes = dict()
+        elif user.userdata_set.filter(attribute__name='position').exists():
+            position = user.userdata_set.filter(attribute__name='position').last().data_value
+                
+        field = session.field_set.filter(position=int(position))
+        response = dict()
+        attributes = dict()
 
         if not field.exists():
             return JsonResponse(dict(set_attributes=dict(request_status='error', request_error='Field not exists.')))
@@ -2129,6 +2165,13 @@ class GetSessionFieldView(View):
                 historic = LiveChat(user_channel=user_channel, live_chat=True)
                 historic.save()
                 user_channel.save()
+            
+            # send email to the support
+            try:
+                support = dict(user=user.id, name='{0} {1}'.format(user.first_name, user.last_name), bot_id=user.bot_id)
+                requests.post('{0}/api/support/'.format(os.getenv('AUTH_DOMAIN')), json=support) 
+            except:
+                pass
 
         elif field.field_type == 'user_input':
             attributes['save_user_input'] = True

@@ -49,6 +49,25 @@ class UserConversationSerializer(serializers.ModelSerializer):
                   'last_message', 'last_bot_id']
 
 
+class UserShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name')
+
+
+class InstanceDetailSerializer(serializers.ModelSerializer):
+
+    user = serializers.SerializerMethodField()
+    def get_user(self, obj):
+        qs = User.objects.filter(instanceassociationuser__instance_id=obj.pk)
+        serializer = UserShortSerializer(qs, many=True)
+        return serializer.data
+
+    class Meta:
+        model = Instance
+        fields = '__all__'
+
+
 class UserDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserData
