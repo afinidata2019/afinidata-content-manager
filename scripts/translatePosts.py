@@ -7,6 +7,7 @@ import base64
 import requests
 import csv
 import time
+import os
 
 AFINICONTENT_URL = "https://afinicontent.com"
 
@@ -16,6 +17,28 @@ def add(x, y):
 def translate_locale_posts(language_origin = 'en',
                            language_destination = 'pt',
                            locale_destination = 'pt_PT'):
+    """
+        Uploads featured media to wordpress and get link
+    """
+    def upload_img_featured(image_path):
+        try:
+            code = str(base64.b64encode(b'luci:NGV8 3x5L kZ0m QENi qZEA XavL'),'utf-8')
+            url= AFINICONTENT_URL + '/wp-json/wp/v2/media'
+            data = open(image_path, 'rb').read()
+            headers = {'Content-Type': 'application/json',
+                    'Authorization': 'Basic %s' % (code),
+                    'Username': 'luci',
+                    'Password': '%s' % (code)}
+            res = requests.post(url=url,
+                                data=data,
+                                headers=headers)
+
+            new_dict=res.json()
+            # new_id= new_dict.get('id')
+            link = new_dict.get('guid').get("rendered")
+            return link
+        except FileNotFoundError:
+            return None
 
     def generate_csv(list, filename):
         keys = list[0].keys()
@@ -51,8 +74,9 @@ def translate_locale_posts(language_origin = 'en',
                 "content" : post_content,
                 "status" : "draft",
                 "slug" : post_slug,
-                "featured_media":featured_media
             }
+        if featured_media is not None:
+            data["featured_media"] = featured_media
 
         response = requests.post(url_srcdest, data=json.dumps(data), headers=headers)
 
@@ -161,7 +185,7 @@ def translate_locale_posts(language_origin = 'en',
         if use_image_from_wp:
             image_post_url = wordpress_post['featured_media']
         else:
-            image_post_url = post.thumbnail
+            image_post_url = upload_img_featured(post.thumbnail)
 
         #Create the new translated Wordpress Page, save_new_post_in_wordpress
         url = save_post_wordpress(post_slug = language_destination+'-%s' % (post_name),
