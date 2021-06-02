@@ -55,7 +55,11 @@ def translate_locale_posts(language_origin = 'en',
         try:
             post = r.json()[0]
         except:
-            raise Exception(dict(request = '%s/wp-json/wp/v2/posts?slug=%s' % (AFINICONTENT_URL, post_slug)))
+            r = requests.get('%s/wp-json/wp/v2/posts?slug=%s' % (AFINICONTENT_URL, post_slug[3:]))
+            try:
+                post = r.json()[0]
+            except:
+                raise Exception(dict(request = '%s/wp-json/wp/v2/posts?slug=%s' % (AFINICONTENT_URL, post_slug)))
         return post
 
     def save_post_wordpress(post_slug, post_title, post_content, featured_media):
@@ -199,7 +203,7 @@ def translate_locale_posts(language_origin = 'en',
                                    plain_post_content=translated_text_html,
                                    link_post=url,
                                    post_id=post.id)
-        # new_post_locale.save()
+        new_post_locale.save()
 
         print("ID:", post.id, "Translated:", title, "Image:", "url: ", url)
 
