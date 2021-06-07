@@ -252,7 +252,7 @@ DOMAIN_URL = 'http://localhost:8000'
 # DEBUG = False
 
 ALLOWED_HOSTS = ['*']
-DOMAIN_URL = 'https://contentmanager.afinidata.com'
+DOMAIN_URL = os.getenv('CONTENT_MANAGER_DOMAIN_URL')
 
 CORS_ORIGIN_WHITELIST = [
    "http://127.0.0.1:3000",
