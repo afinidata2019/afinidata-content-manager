@@ -3,9 +3,11 @@ import os
 import re
 import requests
 import dateutil.parser
+import urllib.parse
 from datetime import datetime, timedelta, time
-from django.db.models import Q, Exists
+from django.db.models import Exists, Func, F, FloatField, Q, Value
 from django.db.models.aggregates import Max
+from django.db.models.functions import Cast
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from rest_framework import filters, viewsets, permissions
@@ -26,7 +28,7 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = models.User.objects.all().annotate(last_interaction=Max('userchannel__interaction__id')).order_by('-last_interaction')
     serializer_class = serializers.UserSerializer
     filter_backends = [filters.SearchFilter]
-    search_fields = ['=id', 'username', 'first_name', 'last_name', '=bot_id', '=channel_id', '$created_at']
+    search_fields = ['=id', 'first_name', 'last_name', '=bot_id', '=channel_id', '$created_at']
     http_method_names = ['get', 'patch', 'options', 'head', 'post']
 
     def get_queryset(self):
@@ -52,9 +54,10 @@ class UserViewSet(viewsets.ModelViewSet):
             if 'user_channel_id' not in request.GET or 'bot_id' not in request.GET or 'bot_channel_id' not in request.GET:
                 return Response({'request_status':400, 'error':'Wrong parameters'})
 
+            user_channel_id = urllib.parse.unquote(request.GET['user_channel_id'])
             user_channel = models.UserChannel.objects.filter(   bot_id=request.GET['bot_id'], 
                                                                 bot_channel_id=request.GET['bot_channel_id'], 
-                                                                user_channel_id=request.GET['user_channel_id'])
+                                                                user_channel_id=user_channel_id)
 
             if not user_channel.exists():
                 return Response({'request_status':404, 'error':'Sender could not be found'})
@@ -105,11 +108,12 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(methods=['POST'], detail=False)
     def advance_search(self, request):
+        queryset = models.User.objects.all()
         filtros = request.data['filtros']
         next_connector = None
         date_filter = Q()
         filter_search = Q()
-        queryset = models.User.objects.all()
+        
         people_search = PeopleFilterSearch()
 
         for idx, f in enumerate(filtros):
@@ -121,61 +125,57 @@ class UserViewSet(viewsets.ModelViewSet):
 
             if search_by == 'attribute':
                 attribute = Attribute.objects.get(pk=data_key)
-                is_numeric = attribute.type == 'numeric'
+                is_exact = attribute.type in ['numeric', 'category']
                 
                 # check if attribute belongs to user or instance, Priority to USER
                 if attribute.entity_set.filter(id__in=[4, 5]).exists():
                     check_attribute_type = 'USER'
 
                 if condition == 'is_set' or condition == 'not_set':
+                    model_field = dict(instanceassociationuser__instance__attributevalue__attribute_id=data_key)
                     if check_attribute_type == 'USER':
-                        if condition == 'is_set':
-                            # validar is set attribute
-                            qs = models.User.objects.filter(userdata__attribute_id=data_key)
-                            queryset = people_search.apply_connector(next_connector, queryset, qs)
+                        model_field = dict(userdata__attribute_id=data_key)
 
-                        if condition == 'not_set':
-                            # validar not set attribute
-                            qs = models.User.objects.exclude(userdata__attribute_id=data_key)
-                            queryset = people_search.apply_connector(next_connector, queryset, qs)
+                    if condition == 'is_set':
+                        qs = models.User.objects.filter(**model_field)
                     else:
-                        if condition == 'is_set':
-                            qs = models.User.objects.filter(
-                                instanceassociationuser__instance__attributevalue__attribute_id=data_key)
+                        qs = models.User.objects.exclude(**model_field)
 
-                        if condition == 'not_set':
-                            qs = models.User.objects.exclude(
-                                instanceassociationuser__instance__attributevalue__attribute_id=data_key)
-
-                        queryset = people_search.apply_connector(next_connector, queryset, qs)
+                    queryset = people_search.apply_connector(next_connector, queryset, qs)
 
                 else:
                     if check_attribute_type == 'INSTANCE':
                         # filter by attribute instance
                         last_attributes = people_search.get_last_attributes(data_key, model=InstanceAttributeValue, type_id='instance_id')
+                        s = Q(instanceassociationuser__instance__attributevalue__id__in=last_attributes)
                         
-                        s = Q(instanceassociationuser__instance__attributevalue__id__in=last_attributes) & \
-                            people_search.apply_filter('instanceassociationuser__instance__attributevalue__value',
-                                                        value, condition, numeric=is_numeric)
+                        val_field = 'instanceassociationuser__instance__attributevalue__value'
+                        
                     else:
                         # filter by attribute user
                         last_attributes = people_search.get_last_attributes(data_key, model=models.UserData, type_id='user_id')
+                        s = Q(userdata__id__in=last_attributes)
 
-                        s = Q(userdata__id__in=last_attributes) & \
-                            people_search.apply_filter('userdata__data_value', value, condition, numeric=is_numeric)
-                      
+                        val_field = 'userdata__data_value'
+                    
                     qs = models.User.objects.filter(s)
-                    queryset = people_search.apply_connector(next_connector, queryset, qs)
+                    if attribute.type  == 'numeric':
+                        qs = qs.exclude(**{f"{val_field}__isnull":True}).exclude(**{f"{val_field}":""})
+                        qs = qs.annotate(as_float=Cast(Func(F(val_field), Value('/[^0-9]/'), Value(''),function='regexp_replace'), FloatField()))
+                        val_field = 'as_float'
+                    
+                    s = people_search.apply_filter(val_field, value, condition, exact=is_exact)
+                    queryset = people_search.apply_connector(next_connector, queryset, qs.filter(s))
 
             elif search_by == 'bot':
                 condition = condition if condition == 'is' else 'is_not'
-                s = people_search.apply_filter('bot_id', value, condition, numeric=True)
+                s = people_search.apply_filter('bot_id', value, condition, exact=True)
                 qs = models.User.objects.filter(s)
                 queryset = people_search.apply_connector(next_connector, queryset, qs)
             
             elif search_by == 'channel':
                 # filter by channel
-                s = people_search.apply_filter('userchannel__channel_id', value, condition, numeric=True)
+                s = people_search.apply_filter('userchannel__channel_id', value, condition, exact=True)
                 qs = models.User.objects.filter(s)
                 queryset = people_search.apply_connector(next_connector, queryset, qs)
             
@@ -207,37 +207,27 @@ class UserViewSet(viewsets.ModelViewSet):
 
             elif search_by == 'group':
                 # filter by group and by parent group
-                s = people_search.apply_filter('assignationmessengeruser__group_id', value, condition, numeric=True)
+                s = people_search.apply_filter('assignationmessengeruser__group_id', value, condition, exact=True)
                 s2 = people_search.apply_filter('assignationmessengeruser__group__parent_id',
-                                                 value, condition, numeric=True)
+                                                 value, condition, exact=True)
                 qs = models.User.objects.filter(s | s2)
                 queryset = people_search.apply_connector(next_connector, queryset, qs)
 
             elif search_by == 'program':
                 # filter by program
                 s = people_search.apply_filter('assignationmessengeruser__group__programassignation__program_id',
-                                                value, condition, numeric=True)
+                                                value, condition, exact=True)
                 qs = models.User.objects.filter(s)
                 queryset = people_search.apply_connector(next_connector, queryset, qs)
 
             elif search_by == 'sequence':
-                try:
-                    url = "{0}/api/0.1/uhts/getSuscribedUsers/?sequence_id={1}".format(os.getenv('HOT_TRIGGERS_DOMAIN'), value)
-                    response = requests.get(url).json()
-                    suscribed_users = response['results'] if 'results' in response else list()
-                    
-                    if condition == 'is':
-                        qs = models.User.objects.filter(id__in=suscribed_users)
-                    else:
-                        qs = models.User.objects.exclude(id__in=suscribed_users)
-                    
-                    queryset = people_search.apply_connector(next_connector, queryset, qs)
-                except Exception as err:
+                queryset = people_search.by_sequence(models.User, 'id', next_connector, value, condition, queryset)
+                if isinstance(queryset, bool):
                     return Response({'message':'subscribed API error'},status=HTTP_500_INTERNAL_SERVER_ERROR)
 
             next_connector = f['connector']
 
-        if request.query_params.get("search"):
+        if request.query_params.get('search'):
             # search by queryparams
             params = ['username','first_name','last_name','created_at']
 
@@ -250,6 +240,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
         queryset = queryset.filter(date_filter).filter(filter_search).distinct()
         queryset = queryset.annotate(last_interaction=Max('userchannel__interaction__id')).order_by('-last_interaction')
+        
         pagination = PageNumberPagination()
         qs = pagination.paginate_queryset(queryset, request)
         serializer = serializers.UserSerializer(qs, many=True)
@@ -397,7 +388,7 @@ class UserDataViewSet(viewsets.ModelViewSet):
 
 
 class UserChannelSet(viewsets.ModelViewSet):
-    queryset = models.UserChannel.objects.all().order_by('-id')
+    queryset = models.UserChannel.objects.all()
     serializer_class = serializers.UserChannelSerializer
     http_method_names = ['get', 'post', 'patch', 'options', 'head']
 
@@ -411,7 +402,8 @@ class UserChannelSet(viewsets.ModelViewSet):
             return qs.filter(id=self.request.query_params.get('id'))
 
         if self.request.query_params.get('user_channel_id'):
-            qs = qs.filter(user_channel_id=self.request.query_params.get('user_channel_id'))
+            param_user_channel_id = urllib.parse.unquote(self.request.query_params.get('user_channel_id'))
+            qs = qs.filter(user_channel_id=param_user_channel_id)
 
         if self.request.query_params.get('bot_id'):
             qs = qs.filter(bot_id=self.request.query_params.get('bot_id'))
@@ -422,7 +414,7 @@ class UserChannelSet(viewsets.ModelViewSet):
         if self.request.query_params.get('bot_channel_id'):
             qs = qs.filter(bot_channel_id=self.request.query_params.get('bot_channel_id'))
 
-        return qs
+        return qs.order_by('-id')
 
     def create(self, request, *args, **kwargs):
         created = super(UserChannelSet, self).create(request, *args, **kwargs)

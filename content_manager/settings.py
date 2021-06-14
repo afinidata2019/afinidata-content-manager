@@ -251,7 +251,7 @@ DOMAIN_URL = 'http://localhost:8000'
 # DEBUG = False
 
 ALLOWED_HOSTS = ['*']
-DOMAIN_URL = 'https://contentmanager.afinidata.com'
+DOMAIN_URL = os.getenv('CONTENT_MANAGER_DOMAIN_URL')
 
 CORS_ORIGIN_WHITELIST = [
    "http://127.0.0.1:3000",
@@ -260,6 +260,10 @@ CORS_ORIGIN_WHITELIST = [
    "https://core.afinidata.com",
    "https://www.twilio.com",
    "https://hottriggers.afinidata.com",
-   "https://program.afinidata.com"
+   "https://program.afinidata.com",
+   "https://app.artificial.monster",
+   "https://core.artificial.monster",
+   "https://hottriggers.artificial.monster",
+   "https://program.artificial.monster"
 ]
 # CORS_ORIGIN_ALLOW_ALL = True

@@ -4,12 +4,12 @@ from django.utils import timezone
 import requests
 import os
 
+from entities.serializers import EntityNameSerializer
 from instances.serializers import InstanceShortSerializer
 from instances.models import Instance
 
 class UserSerializer(serializers.ModelSerializer):
     profile_pic = serializers.ReadOnlyField()
-    last_message = serializers.ReadOnlyField()
     last_bot_id = serializers.ReadOnlyField()
     bot_channel_id = serializers.ReadOnlyField()
     user_channel_id = serializers.ReadOnlyField()
@@ -29,7 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'first_name', 'last_name', 'username', 'last_seen', 'backup_key', 'license', 'language',
                   'last_channel_interaction', 'window', 'channel_id', 'user_channel_id', 'bot_channel_id', 'bot_id', 'profile_pic',
-                  'last_message', 'last_bot_id', 'created_at', 'updated_at', 'entity','instances']
+                  'last_bot_id', 'created_at', 'updated_at', 'entity','instances']
 
 
 class UserConversationSerializer(serializers.ModelSerializer):
@@ -48,6 +48,39 @@ class UserConversationSerializer(serializers.ModelSerializer):
         fields = ['id', 'first_name', 'last_name', 'username', 'last_seen', 'last_user_message',
                   'last_channel_interaction', 'window', 'user_channel_id', 'bot_channel_id', 'bot_id', 'profile_pic',
                   'last_message', 'last_bot_id']
+
+
+class UserReplySerializer(serializers.ModelSerializer):
+    # get id, name from instances associates to user
+    instances = serializers.SerializerMethodField()
+
+    def get_instances(self, obj):
+        qs = Instance.objects.filter(instanceassociationuser__user_id=obj.pk)
+        serializer = InstanceShortSerializer(qs, many=True)
+        return serializer.data
+
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'instances']
+
+
+class UserShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name')
+
+
+class InstanceDetailSerializer(serializers.ModelSerializer):
+
+    user = serializers.SerializerMethodField()
+    def get_user(self, obj):
+        qs = User.objects.filter(instanceassociationuser__instance_id=obj.pk)
+        serializer = UserShortSerializer(qs, many=True)
+        return serializer.data
+
+    class Meta:
+        model = Instance
+        fields = '__all__'
 
 
 class UserDataSerializer(serializers.ModelSerializer):
