@@ -14,3 +14,10 @@ class AttributeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Attribute
         fields = ['id', 'name', 'type', 'attribute_view', 'created_at', 'updated_at']
+
+
+class AttributeShortSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Attribute
+        fields = ['id', 'name']

@@ -2,11 +2,10 @@ from rest_framework import viewsets, permissions, filters
 from programs import models, serializers
 from django.db.models import Q
 from django.utils.decorators import method_decorator
-from django.db.models import Q
 
 
 class ProgramViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = models.Program.objects.all().order_by('-id')
+    queryset = models.Program.objects.all()
     serializer_class = serializers.ProgramSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ('name', 'description')
@@ -15,10 +14,14 @@ class ProgramViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+
+        if self.request.query_params.get('options'):
+            pagination_class = None
+            
         if self.request.query_params.get('id'):
             return qs.filter(id=self.request.query_params.get('id'))
         
-        return qs
+        return qs.order_by('-id')
 
     def list(self, request, *args, **kwargs):
         return super(ProgramViewSet, self).list(request, *args, **kwargs)

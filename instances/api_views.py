@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta, time
-from django.db.models import Q
+from django.db.models import Exists, Func, F, FloatField, Q, Value
+from django.db.models.functions import Cast
 from rest_framework import viewsets, filters
 from rest_framework.decorators import action
-# from rest_framework.response import Response
+from rest_framework.response import Response
 # from django.utils.decorators import method_decorator
 from rest_framework.pagination import PageNumberPagination
 # from rest_framework import filters
@@ -12,11 +13,12 @@ from groups.models import ProgramAssignation, AssignationMessengerUser
 from instances import models, serializers
 from instances.models import AttributeValue
 from messenger_users.models import User, UserData
+from messenger_users.serializers import InstanceDetailSerializer
 from utilities.views import PeopleFilterSearch
 
 
 class InstanceViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = models.Instance.objects.all().order_by('id')
+    queryset = models.Instance.objects.all()
     serializer_class = serializers.InstanceSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['=id', 'name']
@@ -24,7 +26,7 @@ class InstanceViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         if self.request.query_params.get('id'):
-            return qs.filter(id=self.request.query_params.get('id'))
+            return qs.filter(id=self.request.query_params.get('id')).order_by('id')
 
         if self.request.query_params.get('user_id'):
             instances = models.InstanceAssociationUser.objects.values_list('instance', flat=True).all().filter(
@@ -33,9 +35,9 @@ class InstanceViewSet(viewsets.ReadOnlyModelViewSet):
             if not instances:
                 return []
 
-            return qs.filter(id__in=instances)
+            return qs.filter(id__in=instances).order_by('id')
 
-        return qs
+        return qs.order_by('id')
 
     @action(methods=['GET'], detail=True)
     def get_possible_values(self, request, pk=None):
@@ -51,8 +53,9 @@ class InstanceViewSet(viewsets.ReadOnlyModelViewSet):
     def advance_search(self, request):
         queryset = super().get_queryset()
         filtros = request.data['filtros']
-        apply_filters = Q()
         next_connector = None
+        apply_filters = Q()
+        
         people_search = PeopleFilterSearch()
 
         for idx, f in enumerate(filtros):
@@ -64,7 +67,7 @@ class InstanceViewSet(viewsets.ReadOnlyModelViewSet):
 
             if search_by == 'attribute':
                 attribute = Attribute.objects.get(pk=data_key)
-                is_numeric = attribute.type == 'numeric'
+                is_exact = attribute.type in ['numeric', 'category']
 
                 # check if attribute belongs to user or instance, Priority to INSTANCES
                 if attribute.entity_set.filter(id__in=[1, 2]).exists():
@@ -91,27 +94,33 @@ class InstanceViewSet(viewsets.ReadOnlyModelViewSet):
                             q = ~Q(attributevalue__attribute_id=data_key)
                             apply_filters = people_search.apply_connector(next_connector, apply_filters, q)
                 else:
-
                     if check_attribute_type == 'USER':
                         # filter by attribute user
                         last_attributes = people_search.get_last_attributes(data_key, model=UserData, type_id='user_id')
-
-                        s = people_search.apply_filter('userdata__data_value', value, condition, numeric=is_numeric)
-                        s = s & Q(userdata__id__in=last_attributes)
-                        query_search = list(User.objects.filter(s).values_list('id',flat=True))
-                        query = Q(instanceassociationuser__user_id__in=query_search)
+                        # query_search = list(User.objects.filter(userdata__id__in=last_attributes).values_list('id',flat=True))
+                        s = Q(instanceassociationuser__user__userdata__id__in=last_attributes)
+                        
+                        val_field = 'userdata__data_value'
+                        
                     else:
                         # filter by attribute instance
                         last_attributes = people_search.get_last_attributes(data_key, model=models.AttributeValue, type_id='instance_id')
+                        s = Q(attributevalue__id__in=last_attributes)
 
-                        query_search = people_search.apply_filter('attributevalue__value', value, condition, numeric=is_numeric)
-                        query = query_search & Q(attributevalue__id__in=last_attributes)
-                        
-                    apply_filters = people_search.apply_connector(next_connector, apply_filters, query)
+                        val_field = 'attributevalue__value'
+                    
+                    qs = models.Instance.objects.filter(s)
+                    if attribute.type  == 'numeric':
+                        qs = qs.exclude(**{f"{val_field}__isnull":True}).exclude(**{f"{val_field}=":""})
+                        qs = qs.annotate(as_float=Cast(Func(F(val_field), Value('/[^0-9]/'), Value(''),function='regexp_replace'), FloatField()))
+                        val_field = 'as_float'
+                    
+                    s = people_search.apply_filter(val_field, value, condition, exact=is_exact)
+                    queryset = people_search.apply_connector(next_connector, queryset, qs.filter(s))
 
             elif search_by == 'bot':
                 condition = condition if condition == 'is' else 'is_not'
-                s = people_search.apply_filter('user__bot_id', value, condition, numeric=True)
+                s = people_search.apply_filter('user__bot_id', value, condition, exact=True)
                 qs = AssignationMessengerUser.objects.filter(s).values_list('user_id', flat=True).exclude(user_id__isnull=True).distinct()
                 query = Q(instanceassociationuser__user_id__in=list(qs))
                 apply_filters = people_search.apply_connector(next_connector, apply_filters, query)
@@ -133,21 +142,26 @@ class InstanceViewSet(viewsets.ReadOnlyModelViewSet):
 
             elif search_by == 'group':
                 # filter by group
-                s = people_search.apply_filter('group__id', value, condition, numeric=True)
+                s = people_search.apply_filter('group__id', value, condition, exact=True)
                 qs = AssignationMessengerUser.objects.filter(s).values_list('user_id', flat=True).exclude(user_id__isnull=True).distinct()
-                query_group = Q(instanceassociationuser__user_id__in=list(qs))
-                apply_filters = people_search.apply_connector(next_connector, apply_filters, query_group)
+                queryset = Q(instanceassociationuser__user_id__in=list(qs))
+                apply_filters = people_search.apply_connector(next_connector, apply_filters, queryset)
 
             elif search_by == 'program':
                 # filter by program
-                s = people_search.apply_filter('program__id', value, condition, numeric=True)
+                s = people_search.apply_filter('program__id', value, condition, exact=True)
                 qs = ProgramAssignation.objects.filter(s).values_list('user_id', flat=True).exclude(user_id__isnull=True)
-                query = Q(instanceassociationuser__user_id__in=list(qs))
-                apply_filters = people_search.apply_connector(next_connector, apply_filters, query)
+                queryset = Q(instanceassociationuser__user_id__in=list(qs))
+                apply_filters = people_search.apply_connector(next_connector, apply_filters, queryset)
 
+            elif search_by == 'sequence':
+                queryset = people_search.by_sequence(models.Instance, 'instanceassociationuser__user__id', next_connector, value, condition, queryset)
+                if isinstance(queryset, bool):
+                    return Response({'message':'subscribed API error'},status=HTTP_500_INTERNAL_SERVER_ERROR)
+            
             next_connector = f['connector']
 
-        if request.query_params.get("search"):
+        if request.query_params.get('search'):
             # string search on datatable
             filter_search = Q()
             params = ['id', 'name']
@@ -157,9 +171,10 @@ class InstanceViewSet(viewsets.ReadOnlyModelViewSet):
             queryset = queryset.filter(filter_search)
 
         queryset = queryset.filter(apply_filters)
+
         pagination = PageNumberPagination()
         qs = pagination.paginate_queryset(queryset, request)
-        serializer = serializers.InstanceSerializer(qs, many=True)
+        serializer = InstanceDetailSerializer(qs, many=True)
         return pagination.get_paginated_response(serializer.data)
 
 
