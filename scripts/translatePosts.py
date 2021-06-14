@@ -7,6 +7,7 @@ import base64
 import requests
 import csv
 import time
+import os
 
 AFINICONTENT_URL = "https://afinicontent.com"
 
@@ -16,6 +17,28 @@ def add(x, y):
 def translate_locale_posts(language_origin = 'en',
                            language_destination = 'pt',
                            locale_destination = 'pt_PT'):
+    """
+        Uploads featured media to wordpress and get link
+    """
+    def upload_img_featured(image_path):
+        try:
+            code = str(base64.b64encode(b'luci:NGV8 3x5L kZ0m QENi qZEA XavL'),'utf-8')
+            url= AFINICONTENT_URL + '/wp-json/wp/v2/media'
+            data = open(image_path, 'rb').read()
+            headers = {'Content-Type': 'application/json',
+                    'Authorization': 'Basic %s' % (code),
+                    'Username': 'luci',
+                    'Password': '%s' % (code)}
+            res = requests.post(url=url,
+                                data=data,
+                                headers=headers)
+
+            new_dict=res.json()
+            # new_id= new_dict.get('id')
+            link = new_dict.get('guid').get("rendered")
+            return link
+        except FileNotFoundError:
+            return None
 
     def generate_csv(list, filename):
         keys = list[0].keys()
@@ -32,7 +55,11 @@ def translate_locale_posts(language_origin = 'en',
         try:
             post = r.json()[0]
         except:
-            raise Exception(dict(request = '%s/wp-json/wp/v2/posts?slug=%s' % (AFINICONTENT_URL, post_slug)))
+            r = requests.get('%s/wp-json/wp/v2/posts?slug=%s' % (AFINICONTENT_URL, post_slug[3:]))
+            try:
+                post = r.json()[0]
+            except:
+                raise Exception(dict(request = '%s/wp-json/wp/v2/posts?slug=%s' % (AFINICONTENT_URL, post_slug)))
         return post
 
     def save_post_wordpress(post_slug, post_title, post_content, featured_media):
@@ -51,8 +78,9 @@ def translate_locale_posts(language_origin = 'en',
                 "content" : post_content,
                 "status" : "draft",
                 "slug" : post_slug,
-                "featured_media":featured_media
             }
+        if featured_media is not None:
+            data["featured_media"] = featured_media
 
         response = requests.post(url_srcdest, data=json.dumps(data), headers=headers)
 
@@ -65,16 +93,7 @@ def translate_locale_posts(language_origin = 'en',
     #but have no language_destination PostLocale
 
     posts_array_id = [
-        291,292,293,295,296,297,298,299,300,301,302,303,304,305,307,308,310,311,312,313,
-        314,315,317,318,321,322,323,324,325,326,327,328,329,332,333,334,335,336,337,338,
-        339,340,341,343,345,346,347,348,349,350,352,353,354,356,357,358,359,360,361,363,
-        365,366,367,368,369,370,371,373,374,376,377,378,379,380,381,382,384,385,386,387,
-        388,389,390,391,392,393,394,396,397,398,399,400,401,402,403,404,405,406,407,408,
-        409,410,411,412,413,414,415,416,417,418,419,420,421,422,423,424,425,426,427,428,
-        429,430,431,432,433,434,435,436,437,438,439,440,441,442,443,444,445,446,447,448,
-        449,450,451,452,453,454,455,456,457,458,459,462,463,464,465,466,467,468,469,470,
-        471,498,499,500,501,502,503,504,505,506,507,508,509,510,511,512,513,514,515,516,
-        517,518,519,520,521,583,584,522,523,524,525,526,532,533,534,535,536,537,539,540
+        '683','684','801','823','824','825','826','827','828','829','830','831','857','858'
     ]
 
     done = PostLocale.objects.filter(lang=language_destination)
@@ -99,6 +118,9 @@ def translate_locale_posts(language_origin = 'en',
 
     #post_to_translate = Post.objects.filter(id=291, postlocale__lang=language_origin)
     translated_posts = []
+
+    # use imagen from wordpres post
+    use_image_from_wp = True
 
     for post in post_to_translate:
         current_post_locale = PostLocale.objects.filter(post_id=post.id, lang=language_origin).first()
@@ -163,11 +185,17 @@ def translate_locale_posts(language_origin = 'en',
             if i < len(tags_array):
                 translated_text_html += tags_array[i]
 
+
+        if use_image_from_wp:
+            image_post_url = wordpress_post['featured_media']
+        else:
+            image_post_url = upload_img_featured(post.thumbnail)
+
         #Create the new translated Wordpress Page, save_new_post_in_wordpress
         url = save_post_wordpress(post_slug = language_destination+'-%s' % (post_name),
                                   post_title = title,
                                   post_content = translated_text_html,
-                                  featured_media=wordpress_post['featured_media'])
+                                  featured_media=image_post_url)
         # #save postLocale
         new_post_locale = PostLocale(lang=language_destination,
                                    locale=locale_destination,
@@ -175,7 +203,7 @@ def translate_locale_posts(language_origin = 'en',
                                    plain_post_content=translated_text_html,
                                    link_post=url,
                                    post_id=post.id)
-        # new_post_locale.save()
+        new_post_locale.save()
 
         print("ID:", post.id, "Translated:", title, "Image:", "url: ", url)
 
