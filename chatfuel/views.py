@@ -323,6 +323,63 @@ class ChangeBotChannelUserView(View):
                                                      service_name='Change User BotChannel')))
 
 
+# Finds an existing user_id based on some attributes
+@method_decorator(csrf_exempt, name='dispatch')
+class RecoverUser(View):
+
+    def get(self, request, *args, **kwargs):
+        raise Http404('Not found')
+
+    def post(self, request):
+        if len(request.POST) > 0:
+            data = request.POST.dict()
+        else:
+            data = json.loads(request.body)
+        users = MessengerUser.objects.all()
+        for attribute_name, value in data.items():
+            if attribute_name == 'name':
+                users = users.filter(instanceassociationuser__instance__name=value)
+            elif attribute_name == 'username':
+                users = users.filter(username=value)
+            elif attribute_name == 'first_name':
+                users = users.filter(first_name=value)
+            elif attribute_name == 'last_name':
+                users = users.filter(last_name=value)
+            else:
+                # If the attribute is both of the user and the instance, find occurrences in any of them
+                if Attribute.objects.filter(name=attribute_name, entity__in=[4, 5]).exists() and \
+                        Attribute.objects.filter(name=attribute_name, entity__in=[1, 2]).exists():
+                    u1 = MessengerUser.objects.filter(userdata__attribute__name=attribute_name,
+                                                      userdata__data_value=value).values_list('id', flat=True)
+                    u2 = MessengerUser.objects.filter(instanceassociationuser__instance__attributevalue__attribute__name=attribute_name,
+                                                      instanceassociationuser__instance__attributevalue__value=value).values_list('id', flat=True)
+                    users = users.filter(Q(id__in=u1) | Q(id__in=u2))
+                elif Attribute.objects.filter(name=attribute_name, entity__in=[4, 5]).exists():
+                    # Filter users with this attribute on UserData table
+                    users = users.filter(userdata__attribute__name=attribute_name, userdata__data_value=value)
+
+                elif Attribute.objects.filter(name=attribute_name, entity__in=[1, 2]).exists():
+                    # Filter users with its instance attributes on AttributeValue table
+                    users = users.filter(instanceassociationuser__instance__attributevalue__attribute__name=attribute_name,
+                                         instanceassociationuser__instance__attributevalue__value=value)
+                else:
+                    return JsonResponse(dict(set_attributes=dict(request_status='error',
+                                                                 request_error='%s is not a valid attribute' % attribute_name,
+                                                                 service_name='Recover user')))
+
+        # Count how many users match the attributes received
+        users_found = users.distinct().count()
+        # Select the last user that matches the attributes
+        if users_found > 0:
+            recover_user_id = users.last().id
+        else:
+            recover_user_id = None
+        return JsonResponse(dict(set_attributes=dict(request_status='done',
+                                                     users_found=users_found,
+                                                     recover_user_id=recover_user_id,
+                                                     service_name='Recover user')))
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class StopBotUserView(View):
 
