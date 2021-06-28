@@ -509,11 +509,11 @@ class GetInstancesByUserView(View):
         except:
             pass
         user = MessengerUser.objects.get(id=int(form.data['user']))
-        replies = [dict(title=item.name, set_attributes=dict(instance=item.pk, instance_name=item.name)) for item in
+        replies = [dict(title=item.name, set_attributes=dict(instance=item.pk, instance_name=item.name, last_reply=item.name)) for item in
                    user.get_instances()]
 
         return JsonResponse(dict(
-            set_attributes=dict(request_status='done', service_name='Get Instances'),
+            set_attributes=dict(request_status='done', save_text_reply=True, service_name='Get Instances'),
             messages=[
                 dict(
                     text=label,
