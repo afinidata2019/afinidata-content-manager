@@ -1,5 +1,4 @@
 from django.contrib.auth.models import User
-from milestones.models import Milestone
 from attributes.models import Attribute
 from languages.models import Language
 from entities.models import Entity
@@ -14,7 +13,6 @@ class Program(models.Model):
     levels = models.ManyToManyField('Level')
     areas = models.ManyToManyField(Area)
     users = models.ManyToManyField(User)
-    milestones = models.ManyToManyField(Milestone, through='ProgramMilestoneValue')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -56,7 +54,6 @@ class Level(models.Model):
     description = models.TextField()
     assign_min = models.IntegerField(null=True, blank=True, default=0)
     assign_max = models.IntegerField(null=True, blank=True, default=1)
-    milestones = models.ManyToManyField(Milestone, through='LevelMilestoneAssociation')
     image = models.CharField(max_length=30, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -73,20 +70,3 @@ class LevelLanguage(models.Model):
 
     def __str__(self):
         return self.language.name + ': ' + self.name
-
-
-class LevelMilestoneAssociation(models.Model):
-    level = models.ForeignKey(Level, on_delete=models.CASCADE)
-    milestone = models.ForeignKey(Milestone, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
-class ProgramMilestoneValue(models.Model):
-    milestone = models.ForeignKey(Milestone, on_delete=models.CASCADE)
-    program = models.ForeignKey(Program, on_delete=models.CASCADE)
-    value = models.IntegerField(default=0)
-    min = models.FloatField(default=0)
-    max = models.FloatField(default=0)
-    init = models.FloatField(null=True)
-    created_at = models.DateTimeField(auto_now_add=True)

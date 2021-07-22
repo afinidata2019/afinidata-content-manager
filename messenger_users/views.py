@@ -10,7 +10,6 @@ from rest_framework_bulk import (
 from messenger_users.models import User, Child, ChildData, UserData, Referral, UserActivity
 from django.utils.decorators import method_decorator
 from posts.models import Interaction
-from instances.models import MilestoneInteraction
 from .serializers import UserDataSerializer, UserSerializer, ChildSerializer, ChildDataSerializer
 from rest_framework import viewsets
 from django.http import JsonResponse, Http404, HttpResponse
@@ -182,43 +181,7 @@ def last_interacted(request, id=None):
     return JsonResponse(dict(status="error"))
 
 
-@api_view()
-@method_decorator(csrf_exempt, name='dispatch')
-def get_old_interactions_by_user(request, muid, time_range=30, interaction_type=None):
-    time_range = int(request.GET.get("time_range", time_range))
-    # Posts interaction
-    iob = Interaction.objects.order_by("-created_at").filter(user_id=muid).filter(created_at__gt=datetime.today()-timedelta(days=time_range))
-    if interaction_type:
-        iob = iob.filter(type=interaction_type)
-    i1 = iob.values("type").aggregate(Count("id"))
-    # Milestones interaction
-    iob = MilestoneInteraction.objects.order_by("-created_at").filter(instance_id=muid).filter(
-        created_at__gt=datetime.today() - timedelta(days=time_range))
-    if interaction_type:
-        iob = iob.filter(type=interaction_type)
-    i2 = iob.values("type").aggregate(Count("id"))
-    # Bot interaction
-    new_interactions = dict(interaccionfollow='interaccionfollow', dudas_peque='faqs', faqs='faqs',
-                            etapas_afini='afini_levels', afini_levels='afini_levels',
-                            explorar_beneficios_selec="explore_benefits", explore_benefits='explore_benefits',
-                            unregistered='start_registration', unregistered_user='start_registration',
-                            start_registration='start_registration', finished_register='finish_registration',
-                            finish_registration='finish_registration',
-                            actividades_nr='more_activities', more_activities='more_activities',
-                            assesment_init='assesment_init', star_trial_premium='start_trial_premium',
-                            start_trial_premium='start_trial_premium', lead_premium='lead_premium',
-                            trial_premium_complete='trial_premium_complete', interes_premium1='lead_premium')
-    iob = BotInteraction.objects.order_by("-created_at").filter(user_id=muid).filter(
-        created_at__gt=datetime.today() - timedelta(days=time_range))
-    if interaction_type:
-        if interaction_type.lower() in new_interactions:
-            interaction_type = new_interactions[interaction_type.lower()]
-        iob = iob.filter(interaction__name=interaction_type)
-    i3 = iob.values("interaction__name").aggregate(Count("id"))
-    # Add the results
-    it_count = "{}_count".format(interaction_type)
-    d = {it_count: int(i1["id__count"]) + int(i2["id__count"]) + int(i3["id__count"])}
-    return JsonResponse(dict(set_attributes=d))
+
 
 
 @csrf_exempt
