@@ -49,12 +49,6 @@ urlpatterns = [
     path('get_instance_milestones/', views.GetInstanceMilestoneView.as_view(), name='get_instance_milestones'),
     path('response_milestone/', views.CreateResponseView.as_view(), name='response_milestone'),
 
-    # SESSIONS UTILITIES
-    path('get_session/', views.GetSessionView.as_view(), name='get_session'),
-    path('send_session/', views.SendSessionView.as_view(), name='send_session'),
-    path('get_session_field/', views.GetSessionFieldView.as_view(), name='get_session_field'),
-    path('save_last_reply/', views.SaveLastReplyView.as_view(), name='save_last_reply'),
-
     # REMINDERS DATETIME
     path('save_reminder_datetime/', views.SaveReminderDateTimeView.as_view(), name='save_reminder_datetime'),
     
