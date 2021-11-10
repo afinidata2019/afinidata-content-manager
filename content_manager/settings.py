@@ -259,11 +259,9 @@ CORS_ORIGIN_WHITELIST = [
    "https://app.afinidata.com",
    "https://core.afinidata.com",
    "https://www.twilio.com",
-   "https://hottriggers.afinidata.com",
    "https://program.afinidata.com",
    "https://app.artificial.monster",
    "https://core.artificial.monster",
-   "https://hottriggers.artificial.monster",
    "https://program.artificial.monster"
 ]
 # CORS_ORIGIN_ALLOW_ALL = True
