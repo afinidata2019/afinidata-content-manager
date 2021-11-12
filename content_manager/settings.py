@@ -81,7 +81,8 @@ INSTALLED_APPS = [
     'django_extensions',
     'user_passwd_reset',
     'corsheaders',
-    'django_filters'
+    'django_filters',
+    'rest_framework_simplejwt'
 ]
 
 # DBBACKUP_STORAGE = 'dbbackup.storage.filesystem_storage'
@@ -220,6 +221,9 @@ NOSE_ARGS = [
 
 # REST config
 REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 35,
     'DEFAULT_FILTER_BACKENDS': ('django_filters.rest_framework.DjangoFilterBackend',)

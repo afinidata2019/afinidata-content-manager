@@ -27,6 +27,11 @@ from posts import api_views as posts_api_views
 from programs import api_views as programs_api_views
 from user_sessions import api_views as sessions_api_views
 
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
+
 
 # api v0.1 router
 router = routers.DefaultRouter()
@@ -73,4 +78,8 @@ urlpatterns = [
     path('chatfuel/', include('chatfuel.urls', namespace='chatfuel')),
     path('milestones/', include('milestones.urls', namespace='milestones')),
     path('api/0.1/', include(router.urls)),
+    
+    path('auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
 ]
